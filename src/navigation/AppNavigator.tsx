@@ -57,6 +57,10 @@ const AppNavigator = () => {
         <Stack.Screen
           name="MainTabs"
           component={MainTabNavigator}
+          options={{
+            gestureEnabled: false,
+            animation: 'fade',
+          }}
         />
         <Stack.Screen
           name="ReceivedRequestDetail"
@@ -81,6 +85,10 @@ const AppNavigator = () => {
         <Stack.Screen
           name="Search"
           component={SearchScreen}
+          options={{
+            animation: 'fade',
+            animationDuration: 200,
+          }}
         />
         <Stack.Screen
           name="MateProfile"

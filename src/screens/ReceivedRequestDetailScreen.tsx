@@ -15,10 +15,13 @@ import {
 } from '../data/mateProfiles';
 import {useMateRequestsStore} from '../store/mateRequestsStore';
 import {useAppDialog} from '../context/DialogContext';
+import BackButton from '../components/navigation/BackButton';
+import {goBackSafe} from '../navigation/navigationActions';
 import {
   calcMeetDurationMinutes,
   formatDurationHuman,
 } from '../utils/meetTime';
+import {shareTenureProfile} from '../utils/share';
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -93,9 +96,7 @@ const ReceivedRequestDetailScreen = ({navigation, route}: any) => {
 
       <View style={[styles.container, {paddingTop: insets.top + 8}]}>
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={styles.backArrow}>←</Text>
-          </Pressable>
+          <BackButton onPress={() => goBackSafe(navigation)} />
           <View style={styles.headerRight}>
             <Pressable style={styles.headerBtn}>
               <Text style={styles.headerBtnIcon}>🔖</Text>
@@ -103,9 +104,9 @@ const ReceivedRequestDetailScreen = ({navigation, route}: any) => {
             <Pressable
               style={styles.headerBtn}
               onPress={() =>
-                showAlert({
-                  title: 'Share',
-                  message: 'Share this request soon.',
+                shareTenureProfile({
+                  name: profile.name,
+                  tenureId: profile.tenureId,
                 })
               }>
               <Text style={styles.headerBtnIcon}>↗</Text>

@@ -1,15 +1,10 @@
-import {CommonActions} from '@react-navigation/native';
 import {clearAuth} from './authStorage';
+import {resetToRoute} from '../navigation/navigationActions';
 
 /** Clears the stack and returns the user to login. */
 export const resetToLogin = async (navigation: {
-  dispatch: (action: ReturnType<typeof CommonActions.reset>) => void;
+  dispatch: (action: unknown) => void;
 }) => {
   await clearAuth();
-  navigation.dispatch(
-    CommonActions.reset({
-      index: 0,
-      routes: [{name: 'Login'}],
-    }),
-  );
+  resetToRoute(navigation, 'Login');
 };

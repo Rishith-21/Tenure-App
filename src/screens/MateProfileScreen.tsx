@@ -16,6 +16,9 @@ import MateRequestModal, {
 } from '../components/mate/MateRequestModal';
 import {MATE_CATEGORIES} from '../constants/mateCategories';
 import {useMateRequestsStore} from '../store/mateRequestsStore';
+import {shareTenureProfile} from '../utils/share';
+import BackButton from '../components/navigation/BackButton';
+import {goBackSafe} from '../navigation/navigationActions';
 const MateProfileScreen = ({navigation, route}: any) => {
   const {showAlert} = useAppDialog();
   const insets = useSafeAreaInsets();
@@ -92,9 +95,7 @@ const MateProfileScreen = ({navigation, route}: any) => {
 
       <View style={[styles.container, {paddingTop: insets.top + 8}]}>
         <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-            <Text style={styles.backArrow}>←</Text>
-          </Pressable>
+          <BackButton onPress={() => goBackSafe(navigation)} />
 
           <View style={styles.headerRight}>
             <Pressable
@@ -107,9 +108,9 @@ const MateProfileScreen = ({navigation, route}: any) => {
             <Pressable
               style={styles.headerBtn}
               onPress={() =>
-                showAlert({
-                  title: 'Share profile',
-                  message: `Share ${profile.name}'s Tenure profile link soon.`,
+                shareTenureProfile({
+                  name: profile.name,
+                  tenureId: profile.tenureId,
                 })
               }>
               <Text style={styles.headerBtnIcon}>↗</Text>

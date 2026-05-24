@@ -3,12 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   TextInput,
   ScrollView,
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-
 import {Dropdown} from 'react-native-element-dropdown';
+import RemovableChip from '../components/ui/RemovableChip';
+import {UI, uiLayout, uiStyles} from '../theme/ui';
+import BackButton from '../components/navigation/BackButton';
+import {goBackSafe} from '../navigation/navigationActions';
 
 const countryData = [
   {label: 'India', value: 'india'},
@@ -32,307 +38,271 @@ const languageData = [
   {label: 'Hindi', value: 'Hindi'},
 ];
 
+const dropdownProps = {
+  placeholderStyle: {color: UI.textHint, fontSize: 15},
+  selectedTextStyle: {color: UI.text, fontSize: 15, fontWeight: '600'},
+  itemTextStyle: {color: UI.text, fontSize: 15},
+  activeColor: '#F0F7FA',
+  iconStyle: {width: 22, height: 22},
+};
+
 const LocationLanguageScreen = ({navigation}: any) => {
-
-  const [country, setCountry] = useState(null);
-  const [state, setState] = useState(null);
-  const [district, setDistrict] = useState(null);
+  const [country, setCountry] = useState<string | null>(null);
+  const [state, setState] = useState<string | null>(null);
+  const [district, setDistrict] = useState<string | null>(null);
   const [zipCode, setZipCode] = useState('');
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
 
-  const [selectedLanguages, setSelectedLanguages] =
-    useState<string[]>([]);
-
-  const addLanguage = (item: any) => {
-
-    if (
-      !selectedLanguages.includes(item.value)
-    ) {
-      setSelectedLanguages([
-        ...selectedLanguages,
-        item.value,
-      ]);
+  const addLanguage = (item: {value: string}) => {
+    if (!selectedLanguages.includes(item.value)) {
+      setSelectedLanguages([...selectedLanguages, item.value]);
     }
   };
 
   const removeLanguage = (lang: string) => {
-    setSelectedLanguages(
-      selectedLanguages.filter(
-        item => item !== lang,
-      ),
-    );
+    setSelectedLanguages(selectedLanguages.filter(item => item !== lang));
   };
-const handleSave = () => {
 
-  console.log({
-    country,
-    state,
-    district,
-    zipCode,
-    selectedLanguages,
-  });
+  const handleSave = () => {
+    navigation.navigate('CategoryPreference');
+  };
 
-  navigation.navigate('CategoryPreference');
-};
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}>
+    <>
+      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          <BackButton onPress={() => goBackSafe(navigation)} />
 
-      {/* Back */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}>
+          <View style={styles.locationHeader}>
+            <Text style={styles.heading}>Pin your primary location *</Text>
+            <View style={styles.pinBadge}>
+              <Text style={styles.pinIcon}>📍</Text>
+            </View>
+          </View>
 
-        <Text style={styles.backArrow}>
-          ←
-        </Text>
-      </TouchableOpacity>
+          <View style={styles.locationCard}>
+            <View style={styles.row}>
+              <Dropdown
+                {...dropdownProps}
+                style={styles.dropdownBox}
+                data={countryData}
+                labelField="label"
+                valueField="value"
+                placeholder="Country"
+                value={country}
+                onChange={item => setCountry(item.value)}
+              />
+              <Dropdown
+                {...dropdownProps}
+                style={styles.dropdownBox}
+                data={stateData}
+                labelField="label"
+                valueField="value"
+                placeholder="State"
+                value={state}
+                onChange={item => setState(item.value)}
+              />
+            </View>
 
-      {/* Heading */}
-      <Text style={styles.heading}>
-        Pin your primary location *
-      </Text>
+            <View style={styles.row}>
+              <Dropdown
+                {...dropdownProps}
+                style={styles.dropdownBox}
+                data={districtData}
+                labelField="label"
+                valueField="value"
+                placeholder="District"
+                value={district}
+                onChange={item => setDistrict(item.value)}
+              />
+              <TextInput
+                placeholder="Zip Code"
+                placeholderTextColor={UI.textHint}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={zipCode}
+                onChangeText={setZipCode}
+                style={styles.zipInput}
+              />
+            </View>
+          </View>
 
-      {/* Row 1 */}
-      <View style={styles.row}>
+          <Text style={styles.languageHeading}>Language known*</Text>
 
-        <Dropdown
-          style={styles.dropdownBox}
-          placeholderStyle={styles.placeholder}
-          selectedTextStyle={styles.selectedText}
-          data={countryData}
-          labelField="label"
-          valueField="value"
-          placeholder="Country"
-          value={country}
-          onChange={item => setCountry(item.value)}
-        />
+          <Dropdown
+            {...dropdownProps}
+            style={styles.languageDropdown}
+            data={languageData}
+            labelField="label"
+            valueField="value"
+            placeholder="Select *"
+            value={null}
+            onChange={item => addLanguage(item)}
+          />
 
-        <Dropdown
-          style={styles.dropdownBox}
-          placeholderStyle={styles.placeholder}
-          selectedTextStyle={styles.selectedText}
-          data={stateData}
-          labelField="label"
-          valueField="value"
-          placeholder="State"
-          value={state}
-          onChange={item => setState(item.value)}
-        />
+          {selectedLanguages.length > 0 ? (
+            <View style={styles.languageContainer}>
+              {selectedLanguages.map(lang => (
+                <RemovableChip
+                  key={lang}
+                  label={lang.toLowerCase()}
+                  onRemove={() => removeLanguage(lang)}
+                />
+              ))}
+            </View>
+          ) : null}
 
-      </View>
-
-      {/* Row 2 */}
-      <View style={styles.row}>
-
-        <Dropdown
-          style={styles.dropdownBox}
-          placeholderStyle={styles.placeholder}
-          selectedTextStyle={styles.selectedText}
-          data={districtData}
-          labelField="label"
-          valueField="value"
-          placeholder="District"
-          value={district}
-          onChange={item => setDistrict(item.value)}
-        />
-
-        <TextInput
-          placeholder="Zip Code"
-          placeholderTextColor="#B5B5B5"
-          keyboardType="number-pad"
-          value={zipCode}
-          onChangeText={setZipCode}
-          style={styles.zipInput}
-        />
-
-      </View>
-
-      {/* Language */}
-      <Text style={styles.languageHeading}>
-        Language known*
-      </Text>
-
-      {/* Language Dropdown */}
-      <Dropdown
-        style={styles.languageDropdown}
-        placeholderStyle={styles.languagePlaceholder}
-        selectedTextStyle={styles.selectedText}
-        data={languageData}
-        labelField="label"
-        valueField="value"
-        placeholder="Select *"
-        onChange={item => addLanguage(item)}
-      />
-
-      {/* Chips */}
-      <View style={styles.languageContainer}>
-
-        {selectedLanguages.map(lang => (
-
-          <TouchableOpacity
-            key={lang}
-            style={styles.languageChip}
-            onPress={() => removeLanguage(lang)}>
-
-            <Text style={styles.languageText}>
-              {lang}
-            </Text>
-
-          </TouchableOpacity>
-
-        ))}
-
-      </View>
-
-      {/* Save */}
-      <TouchableOpacity
-        style={styles.saveButton}
-        onPress={handleSave}>
-
-
-        <Text style={styles.saveText}>
-          Save
-        </Text>
-
-        <Text style={styles.saveArrow}>
-          →
-        </Text>
-
-      </TouchableOpacity>
-
-    </ScrollView>
+          <Pressable
+            style={({pressed}) => [
+              styles.saveButton,
+              pressed && styles.saveButtonPressed,
+            ]}
+            onPress={handleSave}>
+            <Text style={styles.saveText}>Save</Text>
+            <Text style={styles.saveArrow}>→</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </>
   );
 };
 
 export default LocationLanguageScreen;
 
+const fieldBase = {
+  ...uiLayout.inputField,
+  height: 54,
+  paddingVertical: 0,
+  borderRadius: 20,
+};
 
 const styles = StyleSheet.create({
-
+  flex: {
+    flex: 1,
+    backgroundColor: UI.bgCream,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: UI.bgCream,
   },
-
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 70,
-    paddingBottom: 50,
+    paddingHorizontal: 26,
+    paddingTop: 48,
+    paddingBottom: 48,
   },
-
   backButton: {
-    marginBottom: 45,
-  },
-
-  backArrow: {
-    fontSize: 28,
-    color: '#111',
-  },
-
-  heading: {
-    fontSize: 18,
-    color: '#333',
+    alignSelf: 'flex-start',
     marginBottom: 28,
-    fontWeight: '400',
+    padding: 4,
   },
-
-  row: {
+  backPressed: {
+    opacity: 0.6,
+  },
+  locationHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-
-  dropdownBox: {
-    width: '48%',
-    height: 54,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-  },
-
-  zipInput: {
-    width: '48%',
-    height: 54,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    fontSize: 15,
-    color: '#111',
-  },
-
-  placeholder: {
-    color: '#B5B5B5',
-    fontSize: 15,
-  },
-
-  selectedText: {
-    color: '#111111',
-    fontSize: 15,
-  },
-
-  languageHeading: {
-    marginTop: 55,
     marginBottom: 18,
-    fontSize: 18,
-    color: '#333',
   },
-
-  languageDropdown: {
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingHorizontal: 22,
-    marginBottom: 20,
+  heading: {
+    flex: 1,
+    fontSize: 17,
+    color: UI.text,
+    fontWeight: '700',
+    lineHeight: 24,
+    paddingRight: 12,
   },
-
-  languagePlaceholder: {
-    color: '#111',
-    fontSize: 18,
-  },
-
-  languageContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-
-  languageChip: {
-    backgroundColor: '#DCE7FF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-    marginRight: 14,
-    marginBottom: 14,
-  },
-
-  languageText: {
-    color: '#003B57',
-    fontSize: 16,
-  },
-
-  saveButton: {
-    marginTop: 90,
-    alignSelf: 'center',
-    backgroundColor: '#003B57',
-    width: 165,
-    height: 58,
-    borderRadius: 30,
-    flexDirection: 'row',
+  pinBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: UI.card,
+    borderWidth: 1,
+    borderColor: UI.borderInput,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
+  pinIcon: {
+    fontSize: 18,
+  },
+  locationCard: {
+    marginBottom: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 12,
+  },
+  dropdownBox: {
+    ...fieldBase,
+    flex: 1,
+    paddingHorizontal: 14,
+  },
+  zipInput: {
+    ...fieldBase,
+    flex: 1,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontWeight: '500',
+    color: UI.text,
+  },
+  languageHeading: {
+    marginTop: 36,
+    marginBottom: 14,
+    fontSize: 17,
+    fontWeight: '700',
+    color: UI.text,
+  },
+  languageDropdown: {
+    ...fieldBase,
+    height: 56,
+    borderRadius: 28,
+    paddingHorizontal: 22,
+    marginBottom: 18,
+  },
+  languageContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
+  },
+  saveButton: {
+    marginTop: 48,
+    alignSelf: 'center',
+    backgroundColor: UI.brand,
+    minWidth: 200,
+    paddingVertical: 18,
+    paddingHorizontal: 36,
+    borderRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: UI.brand,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  saveButtonPressed: {
+    opacity: 0.92,
+  },
   saveText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '800',
   },
-
   saveArrow: {
     color: '#FFFFFF',
-    fontSize: 22,
-    marginLeft: 12,
+    fontSize: 20,
+    marginLeft: 10,
+    fontWeight: '700',
   },
-
 });

@@ -8,6 +8,7 @@ import {
   Modal,
 } from 'react-native';
 import {useAppDialog} from '../../context/DialogContext';
+import BackButton from '../navigation/BackButton';
 
 type Props = {
   mateName: string;
@@ -59,9 +60,7 @@ const ChatHeader = ({
 
   return (
     <View style={styles.header}>
-      <Pressable onPress={onBack} hitSlop={12} style={styles.backButton}>
-        <Text style={styles.backArrow}>←</Text>
-      </Pressable>
+      <BackButton onPress={onBack} style={styles.backButtonSlot} />
 
       <Image source={{uri: mateAvatar}} style={styles.avatar} />
 
@@ -111,8 +110,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  backButton: {marginRight: 8},
-  backArrow: {fontSize: 26, color: '#111111'},
+  backButtonSlot: {marginRight: 8},
   avatar: {
     width: 48,
     height: 48,

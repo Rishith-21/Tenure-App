@@ -20,6 +20,7 @@ import PreviousContactsDrawer from '../components/requests/PreviousContactsDrawe
 import {useMateRequestsStore} from '../store/mateRequestsStore';
 import {MainTabParamList} from '../navigation/MainTabNavigator';
 import {useAppDialog} from '../context/DialogContext';
+import BackButton from '../components/navigation/BackButton';
 
 type SwipeTab = 'request' | 'sent';
 type TabKey = SwipeTab | 'expired';
@@ -155,12 +156,10 @@ const RequestsScreen = () => {
       <StatusBar backgroundColor="#F9F9F7" barStyle="dark-content" />
 
       <View style={styles.header}>
-        <Pressable
+        <BackButton
           onPress={() => navigation.navigate('Home')}
-          hitSlop={12}
-          style={styles.backBtn}>
-          <Text style={styles.backArrow}>←</Text>
-        </Pressable>
+          accessibilityLabel="Go to home"
+        />
         <Text style={styles.headerTitle}>Requests</Text>
       </View>
 

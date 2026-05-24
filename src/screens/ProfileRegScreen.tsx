@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,17 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
-import { useNavigation } from '@react-navigation/native';
-const ProfileRegScreen = ({ navigation}: any) => {
+import {launchImageLibrary} from 'react-native-image-picker';
+import {UI, uiLayout} from '../theme/ui';
 
+const TENURE_ID = '763GCG76';
+const GENDERS = ['man', 'women', 'other'] as const;
+const DEFAULT_AVATAR = 'https://i.pravatar.cc/300';
+
+const ProfileRegScreen = ({navigation}: any) => {
   const [name, setName] = useState('');
   const [selectedGender, setSelectedGender] = useState('');
   const [error, setError] = useState('');
@@ -21,217 +27,187 @@ const ProfileRegScreen = ({ navigation}: any) => {
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
   const [loading, setLoading] = useState(false);
-  const [profileImage, setProfileImage] = useState(
-    'https://i.pravatar.cc/300',
-   );
-  const handleSave = () => {
+  const [profileImage, setProfileImage] = useState(DEFAULT_AVATAR);
 
-  if (!name.trim()) {
-    setError('Name is required');
-    return;
-  }
-
-  if (!selectedGender) {
-    setError('Please select your gender');
-    return;
-  }
-
-  if (!date || !month || !year) {
-    setError('Date of birth is required');
-    return;
-  }
-
-  setError('');
-  setLoading(true);
-
-  setTimeout(() => {
-
-    setLoading(false);
-
-    console.log('Profile Saved');
-
+  const goToLocationStep = () => {
     navigation.navigate('LocationLanguage');
+  };
 
-  }, 1500);
-};
+  const handleSave = () => {
+    if (!name.trim()) {
+      setError('Name is required');
+      return;
+    }
+    if (!selectedGender) {
+      setError('Please select your gender');
+      return;
+    }
+    if (!date || !month || !year) {
+      setError('Date of birth is required');
+      return;
+    }
 
-    const handlePickImage = async () => {
+    setError('');
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      goToLocationStep();
+    }, 1500);
+  };
 
+  const handleFillInLater = () => {
+    if (loading) {
+      return;
+    }
+    setError('');
+    goToLocationStep();
+  };
+
+  const handlePickImage = async () => {
     const result = await launchImageLibrary({
-        mediaType: 'photo',
-        quality: 0.8,
+      mediaType: 'photo',
+      quality: 0.8,
+      selectionLimit: 1,
     });
 
-    if (
-        result.assets &&
-        result.assets.length > 0
-    ) {
-        setProfileImage(result.assets[0].uri || '');
+    if (result.assets && result.assets.length > 0) {
+      setProfileImage(result.assets[0].uri || DEFAULT_AVATAR);
     }
-    };
+  };
 
   return (
     <>
-      <StatusBar
-        backgroundColor="#FFFFFF"
-        barStyle="dark-content"
-      />
+      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          <Text style={styles.stepsText}>3 Step&apos;s only</Text>
 
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}>
+          <Text style={styles.userId}>Tenure id : {TENURE_ID}</Text>
 
-        {/* Steps */}
-        <Text style={styles.stepsText}>
-          Only 3 Steps
-        </Text>
-
-        {/* User ID */}
-        <Text style={styles.userId}>
-          Tenure ID : 763GCG76
-        </Text>
-
-        {/* Profile Image */}
-        <View style={styles.imageSection}>
-
-          <Image
-            source={{ uri: profileImage }}
-            style={styles.profileImage}
-          />
-
-          <Pressable style={styles.changeButton} onPress={handlePickImage}>
-            <Text style={styles.changeButtonText}>
-              Change Image
-            </Text>
-          </Pressable>
-
-        </View>
-
-        {/* Name Input */}
-        <TextInput
-          placeholder="Your Name *"
-          placeholderTextColor="#8A8A8A"
-          value={name}
-          onChangeText={setName}
-          style={styles.nameInput}
-        />
-
-        {/* Gender */}
-        <View style={styles.genderRow}>
-
-          {['Man', 'Women', 'Other'].map(
-            (gender) => (
-
-              <Pressable
-                key={gender}
-                onPress={() =>
-                  setSelectedGender(gender)
-                }
-                style={[
-                  styles.genderButton,
-
-                  selectedGender === gender &&
-                  styles.genderButtonActive,
-                ]}>
-
-                <Text
-                  style={[
-                    styles.genderText,
-
-                    selectedGender === gender &&
-                    styles.genderTextActive,
-                  ]}>
-
-                  {gender}
-
-                </Text>
-
-              </Pressable>
-            ),
-          )}
-
-        </View>
-
-        {/* DOB */}
-        <Text style={styles.dobLabel}>
-          Date of Birth
-        </Text>
-
-        <View style={styles.dobRow}>
-
-          <TextInput
-            placeholder="DD"
-            placeholderTextColor="#8A8A8A"
-            keyboardType="number-pad"
-            maxLength={2}
-            value={date}
-            onChangeText={setDate}
-            style={styles.dobInput}
-          />
-
-          <TextInput
-            placeholder="MM"
-            placeholderTextColor="#8A8A8A"
-            keyboardType="number-pad"
-            maxLength={2}
-            value={month}
-            onChangeText={setMonth}
-            style={styles.dobInput}
-          />
-
-          <TextInput
-            placeholder="YYYY"
-            placeholderTextColor="#8A8A8A"
-            keyboardType="number-pad"
-            maxLength={4}
-            value={year}
-            onChangeText={setYear}
-            style={styles.dobInput}
-          />
-
-        </View>
-
-        {/* Skip */}
-        <Pressable>
-          <Text style={styles.skipText}>
-            Skip for now
-          </Text>
-        </Pressable>
-          {error ? (
-            <Text style={styles.errorText}>
-                {error}
-            </Text>
-            ) : null}
-        {/* Save Button */}
-        <Pressable
-          style={styles.saveButton}
-          onPress={handleSave}
-          disabled={loading}>
-
-          {loading ? (
-
-            <ActivityIndicator color="#FFFFFF" />
-
-          ) : (
-            
-            <View style={styles.saveContent}>
-
-              <Text style={styles.saveButtonText}>
-                Save
-              </Text>
-
-              <Text style={styles.arrow}>
-                →
-              </Text>
-
+          <View style={styles.imageSection}>
+            <View style={styles.avatarRing}>
+              <Image source={{uri: profileImage}} style={styles.profileImage} />
             </View>
+            <Pressable
+              style={({pressed}) => [
+                styles.changeButton,
+                pressed && styles.changeButtonPressed,
+              ]}
+              onPress={handlePickImage}>
+              <Text style={styles.changeButtonText}>Change Image</Text>
+            </Pressable>
+          </View>
 
-          )}
+          <TextInput
+            placeholder="Your Name*"
+            placeholderTextColor={UI.textHint}
+            value={name}
+            onChangeText={setName}
+            style={styles.nameInput}
+          />
 
-        </Pressable>
+          <View style={styles.genderRow}>
+            {GENDERS.map(gender => {
+              const active = selectedGender === gender;
+              return (
+                <Pressable
+                  key={gender}
+                  onPress={() => setSelectedGender(gender)}
+                  style={({pressed}) => [
+                    styles.genderButton,
+                    active && styles.genderButtonActive,
+                    pressed && !active && styles.genderButtonPressed,
+                  ]}>
+                  <Text
+                    style={[
+                      styles.genderText,
+                      active && styles.genderTextActive,
+                    ]}>
+                    {gender}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-      </ScrollView>
+          <Text style={styles.dobLabel}>Date of Birth</Text>
+          <View style={styles.dobRow}>
+            <View style={styles.dobField}>
+              <TextInput
+                placeholder="date"
+                placeholderTextColor={UI.textHint}
+                keyboardType="number-pad"
+                maxLength={2}
+                value={date}
+                onChangeText={setDate}
+                style={styles.dobInput}
+              />
+            </View>
+            <View style={styles.dobField}>
+              <TextInput
+                placeholder="month"
+                placeholderTextColor={UI.textHint}
+                keyboardType="number-pad"
+                maxLength={2}
+                value={month}
+                onChangeText={setMonth}
+                style={styles.dobInput}
+              />
+            </View>
+            <View style={styles.dobField}>
+              <TextInput
+                placeholder="year *"
+                placeholderTextColor={UI.textHint}
+                keyboardType="number-pad"
+                maxLength={4}
+                value={year}
+                onChangeText={setYear}
+                style={styles.dobInput}
+              />
+            </View>
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <View style={styles.footer}>
+            <Pressable
+              style={({pressed}) => [
+                styles.laterButton,
+                pressed && styles.laterButtonPressed,
+              ]}
+              onPress={handleFillInLater}
+              disabled={loading}
+              hitSlop={8}>
+              <Text style={styles.laterText}>Fill in later</Text>
+              <Text style={styles.laterArrow}>→</Text>
+            </Pressable>
+
+            <Pressable
+              style={({pressed}) => [
+                styles.saveButton,
+                loading && styles.saveButtonDisabled,
+                pressed && !loading && styles.saveButtonPressed,
+              ]}
+              onPress={handleSave}
+              disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <View style={styles.saveContent}>
+                  <Text style={styles.saveButtonText}>Save</Text>
+                  <Text style={styles.arrow}>→</Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </>
   );
 };
@@ -239,157 +215,209 @@ const ProfileRegScreen = ({ navigation}: any) => {
 export default ProfileRegScreen;
 
 const styles = StyleSheet.create({
-
+  flex: {
+    flex: 1,
+    backgroundColor: UI.bgCream,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: UI.bgCream,
   },
-
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 70,
+    paddingHorizontal: 26,
+    paddingTop: 52,
     paddingBottom: 40,
   },
-
   stepsText: {
     alignSelf: 'flex-end',
-    fontSize: 18,
-    color: '#111111',
-    marginBottom: 30,
+    fontSize: 13,
+    fontWeight: '600',
+    color: UI.textMuted,
+    marginBottom: 8,
   },
-
   userId: {
     alignSelf: 'center',
-    color: '#777777',
-    fontSize: 14,
-    marginBottom: 20,
+    color: UI.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 28,
+    letterSpacing: 0.2,
   },
-
   imageSection: {
     alignItems: 'center',
-    marginBottom: 50,
+    marginBottom: 36,
   },
-
-  profileImage: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+  avatarRing: {
+    padding: 4,
+    borderRadius: 64,
+    borderWidth: 2,
+    borderColor: UI.brand,
     marginBottom: 14,
+    backgroundColor: UI.card,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
-
+  profileImage: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: UI.cardMuted,
+  },
   changeButton: {
-    backgroundColor: '#F3F3F3',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 30,
+    backgroundColor: UI.card,
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: UI.borderInput,
   },
-
+  changeButtonPressed: {
+    opacity: 0.88,
+  },
   changeButtonText: {
-    color: '#555555',
+    color: UI.textMuted,
     fontSize: 13,
+    fontWeight: '600',
   },
-
   nameInput: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
+    ...uiLayout.inputField,
     fontSize: 16,
-    color: '#111111',
-    marginBottom: 24,
+    color: UI.text,
+    marginBottom: 20,
   },
-
   genderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 36,
+    marginBottom: 28,
+    gap: 10,
   },
-
   genderButton: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: UI.card,
     paddingVertical: 16,
-    borderRadius: 18,
+    borderRadius: 20,
     alignItems: 'center',
-    marginHorizontal: 6,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: UI.border,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-
   genderButtonActive: {
-    backgroundColor: '#003B57',
-    borderColor: '#003B57',
+    backgroundColor: UI.brand,
+    borderColor: UI.brand,
   },
-
+  genderButtonPressed: {
+    opacity: 0.9,
+  },
   genderText: {
-    color: '#111111',
-    fontSize: 16,
+    color: UI.text,
+    fontSize: 15,
     fontWeight: '600',
+    textTransform: 'lowercase',
   },
-
   genderTextActive: {
     color: '#FFFFFF',
+    fontWeight: '700',
   },
-
   dobLabel: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 18,
+    ...uiLayout.fieldLabel,
+    fontSize: 15,
+    color: UI.text,
+    marginBottom: 12,
   },
-
   dobRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 50,
+    gap: 10,
+    marginBottom: 28,
   },
-
+  dobField: {
+    flex: 1,
+  },
   dobInput: {
-    width: '30%',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 18,
-    paddingVertical: 18,
+    ...uiLayout.inputField,
     textAlign: 'center',
-    fontSize: 16,
-    color: '#111111',
-  },
-
-  skipText: {
-    color: '#666666',
     fontSize: 15,
-    marginBottom: 30,
+    paddingVertical: 16,
+    minHeight: 52,
   },
-
+  errorText: {
+    color: UI.danger,
+    fontSize: 13,
+    marginBottom: 16,
+    marginLeft: 4,
+  },
+  footer: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  laterButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: UI.card,
+    borderWidth: 1,
+    borderColor: UI.borderInput,
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    marginLeft: 2,
+  },
+  laterButtonPressed: {
+    opacity: 0.88,
+    backgroundColor: '#F5F5F3',
+  },
+  laterText: {
+    color: UI.brandMuted,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  laterArrow: {
+    color: UI.brandMuted,
+    fontSize: 16,
+    marginLeft: 6,
+    fontWeight: '700',
+  },
   saveButton: {
-    backgroundColor: '#003B57',
+    backgroundColor: UI.brand,
     paddingVertical: 18,
-    borderRadius: 22,
+    paddingHorizontal: 36,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 170,
-    alignSelf: 'center',
+    minWidth: 200,
+    shadowColor: UI.brand,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
   },
-
+  saveButtonPressed: {
+    opacity: 0.92,
+  },
+  saveButtonDisabled: {
+    opacity: 0.75,
+  },
   saveContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-
   arrow: {
     color: '#FFFFFF',
-    fontSize: 22,
-    marginLeft: 12,
-    marginTop: -2,
+    fontSize: 20,
+    marginLeft: 10,
+    fontWeight: '700',
   },
-  errorText: {
-  color: '#E53935',
-  fontSize: 14,
-  marginBottom: 20,
-},
-
 });

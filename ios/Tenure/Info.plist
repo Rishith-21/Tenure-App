@@ -35,7 +35,7 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Tenure uses your location to show your position on the map and find mates nearby.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Tenure needs your camera to take photos in chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

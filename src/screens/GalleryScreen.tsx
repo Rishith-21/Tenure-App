@@ -12,6 +12,8 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {UI, uiLayout, uiStyles} from '../theme/ui';
+import BackButton from '../components/navigation/BackButton';
+import {goBackSafe} from '../navigation/navigationActions';
 
 const COLS = 3;
 const GAP = 10;
@@ -52,9 +54,7 @@ const GalleryScreen = ({navigation, route}: Props) => {
       <StatusBar backgroundColor={UI.bg} barStyle="dark-content" />
 
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Text style={uiStyles.backArrow}>←</Text>
-        </Pressable>
+        <BackButton onPress={() => goBackSafe(navigation)} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {title}
         </Text>

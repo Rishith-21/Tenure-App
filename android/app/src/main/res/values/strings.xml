@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Tenure</string>
+    <!-- Maps SDK for Android — https://console.cloud.google.com/ -->
+    <string name="google_maps_api_key" translatable="false"></string>
 </resources>

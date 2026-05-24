@@ -3,13 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   TextInput,
+  StatusBar,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
-
 import {Dropdown} from 'react-native-element-dropdown';
 import {setOnboardingComplete} from '../utils/authStorage';
+import BackButton from '../components/navigation/BackButton';
+import {goBackSafe, resetToMainTabs} from '../navigation/navigationActions';
+import RemovableChip from '../components/ui/RemovableChip';
+import {UI, uiLayout, uiStyles} from '../theme/ui';
 
 const categoryData = [
   {label: 'Movie Mate', value: 'Movie Mate'},
@@ -19,329 +26,313 @@ const categoryData = [
   {label: 'Study Mate', value: 'Study Mate'},
 ];
 
+const dropdownProps = {
+  placeholderStyle: {color: UI.textHint, fontSize: 15},
+  selectedTextStyle: {color: UI.text, fontSize: 15, fontWeight: '600'},
+  itemTextStyle: {color: UI.text, fontSize: 15},
+  activeColor: '#F0F7FA',
+  iconStyle: {width: 22, height: 22},
+};
+
 const CategoryPreferenceScreen = ({navigation}: any) => {
-
-  const [selectedCategories, setSelectedCategories] =
-    useState<string[]>([]);
-
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [budget, setBudget] = useState('');
+  const [finishing, setFinishing] = useState(false);
 
-  const addCategory = (item: any) => {
-
-    if (
-      !selectedCategories.includes(item.value)
-    ) {
-      setSelectedCategories([
-        ...selectedCategories,
-        item.value,
-      ]);
+  const addCategory = (item: {value: string}) => {
+    if (!selectedCategories.includes(item.value)) {
+      setSelectedCategories([...selectedCategories, item.value]);
     }
   };
 
   const removeCategory = (category: string) => {
-
     setSelectedCategories(
-      selectedCategories.filter(
-        item => item !== category,
-      ),
+      selectedCategories.filter(item => item !== category),
     );
   };
 
   const handleFinish = async () => {
-    await setOnboardingComplete();
-    navigation.navigate('MainTabs');
+    setFinishing(true);
+    try {
+      await setOnboardingComplete();
+      resetToMainTabs(navigation);
+    } finally {
+      setFinishing(false);
+    }
   };
 
+  const displayBudget = budget.trim() || '50';
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}>
+    <>
+      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          <BackButton onPress={() => goBackSafe(navigation)} />
 
-      {/* Back */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}>
+          <Text style={styles.heading}>Select Category*</Text>
 
-        <Text style={styles.backArrow}>
-          ←
-        </Text>
+          <View style={styles.requestBox}>
+            <Text style={styles.requestText}>Depends on user request</Text>
+          </View>
 
-      </TouchableOpacity>
+          <View style={styles.orRow}>
+            <View style={styles.orLine} />
+            <Text style={styles.orText}>OR</Text>
+            <View style={styles.orLine} />
+          </View>
 
-      {/* Heading */}
-      <Text style={styles.heading}>
-        Select Category*
-      </Text>
+          <Dropdown
+            {...dropdownProps}
+            style={styles.dropdown}
+            data={categoryData}
+            labelField="label"
+            valueField="value"
+            placeholder="Select Category*"
+            value={null}
+            onChange={item => addCategory(item)}
+          />
 
-      {/* Request Type */}
-      <View style={styles.requestBox}>
+          {selectedCategories.length > 0 ? (
+            <View style={styles.chipContainer}>
+              {selectedCategories.map(category => (
+                <RemovableChip
+                  key={category}
+                  label={category}
+                  onRemove={() => removeCategory(category)}
+                />
+              ))}
+            </View>
+          ) : null}
 
-        <Text style={styles.requestText}>
-          Depends on user request
-        </Text>
+          <Text style={styles.budgetHeading}>Money spent per hour</Text>
 
-      </View>
+          <View style={styles.budgetBox}>
+            <Text style={styles.currency}>₹</Text>
+            <TextInput
+              placeholder="50"
+              placeholderTextColor={UI.text}
+              keyboardType="number-pad"
+              maxLength={5}
+              value={budget}
+              onChangeText={setBudget}
+              style={styles.budgetInput}
+            />
+            <Text style={styles.perHour}>/H</Text>
+          </View>
 
-      {/* OR */}
-      <Text style={styles.orText}>
-        OR
-      </Text>
-
-      {/* Dropdown */}
-      <Dropdown
-        style={styles.dropdown}
-        placeholderStyle={styles.placeholder}
-        selectedTextStyle={styles.selectedText}
-        data={categoryData}
-        labelField="label"
-        valueField="value"
-        placeholder="Select Category*"
-        onChange={item => addCategory(item)}
-      />
-
-      {/* Chips */}
-      <View style={styles.chipContainer}>
-
-        {selectedCategories.map(category => (
-
-          <TouchableOpacity
-            key={category}
-            style={styles.chip}
-            onPress={() =>
-              removeCategory(category)
-            }>
-
-            <Text style={styles.chipText}>
-              {category}
+          {!budget.trim() ? (
+            <Text style={styles.budgetHint}>
+              Suggested: ₹ {displayBudget}/H
             </Text>
+          ) : null}
 
-            <Text style={styles.infoIcon}>
-              ⓘ
-            </Text>
+          <Pressable
+            style={({pressed}) => [
+              styles.updateButton,
+              pressed && styles.updateButtonPressed,
+            ]}>
+            <Text style={styles.updateText}>Update more</Text>
+          </Pressable>
 
-          </TouchableOpacity>
-
-        ))}
-
-      </View>
-
-      {/* Budget */}
-      <Text style={styles.budgetHeading}>
-        Money spent per hour
-      </Text>
-
-      <View style={styles.budgetBox}>
-
-        <Text style={styles.currency}>
-          ₹
-        </Text>
-
-        <TextInput
-          placeholder="50"
-          placeholderTextColor="#111"
-          keyboardType="number-pad"
-          value={budget}
-          onChangeText={setBudget}
-          style={styles.budgetInput}
-        />
-
-        <Text style={styles.perHour}>
-          /H
-        </Text>
-
-      </View>
-
-      {/* Update More */}
-      <TouchableOpacity style={styles.updateButton}>
-
-        <Text style={styles.updateText}>
-          Update more
-        </Text>
-
-      </TouchableOpacity>
-
-      {/* Finish */}
-      <TouchableOpacity
-        style={styles.finishButton}
-        onPress={handleFinish}>
-
-        <Text style={styles.finishText}>
-          Save & Finish
-        </Text>
-
-      </TouchableOpacity>
-
-    </ScrollView>
+          <Pressable
+            style={({pressed}) => [
+              styles.finishButton,
+              finishing && styles.finishButtonDisabled,
+              pressed && !finishing && styles.finishButtonPressed,
+            ]}
+            onPress={handleFinish}
+            disabled={finishing}>
+            {finishing ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.finishText}>Save & Finish</Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </>
   );
 };
 
 export default CategoryPreferenceScreen;
 
-const styles = StyleSheet.create({
+const pillField = {
+  ...uiLayout.inputField,
+  height: 56,
+  borderRadius: 28,
+  paddingVertical: 0,
+};
 
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+    backgroundColor: UI.bgCream,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: UI.bgCream,
   },
-
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 70,
-    paddingBottom: 60,
+    paddingHorizontal: 26,
+    paddingTop: 48,
+    paddingBottom: 56,
   },
-
   backButton: {
-    marginBottom: 40,
+    alignSelf: 'flex-start',
+    marginBottom: 28,
+    padding: 4,
   },
-
-  backArrow: {
-    fontSize: 28,
-    color: '#111',
+  backPressed: {
+    opacity: 0.6,
   },
-
   heading: {
-    fontSize: 18,
-    color: '#222',
-    marginBottom: 20,
+    fontSize: 17,
+    fontWeight: '700',
+    color: UI.text,
+    marginBottom: 18,
   },
-
   requestBox: {
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
+    ...pillField,
     justifyContent: 'center',
     paddingHorizontal: 22,
+    backgroundColor: '#F0F7FA',
+    borderColor: '#C5DCE6',
   },
-
   requestText: {
-    color: '#003B57',
+    color: UI.brand,
     fontSize: 16,
+    fontWeight: '600',
   },
-
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    gap: 12,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: UI.borderInput,
+  },
   orText: {
-    alignSelf: 'center',
-    marginVertical: 18,
-    fontSize: 16,
-    color: '#111',
+    fontSize: 14,
+    fontWeight: '700',
+    color: UI.textMuted,
+    letterSpacing: 0.5,
   },
-
   dropdown: {
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
+    ...pillField,
     paddingHorizontal: 22,
   },
-
-  placeholder: {
-    color: '#111',
-    fontSize: 18,
-  },
-
-  selectedText: {
-    color: '#111',
-    fontSize: 16,
-  },
-
   chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 18,
+    marginTop: 16,
+    gap: 10,
   },
-
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DCE7FF',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 24,
-    marginRight: 14,
-    marginBottom: 14,
-  },
-
-  chipText: {
-    color: '#003B57',
-    fontSize: 16,
-  },
-
-  infoIcon: {
-    marginLeft: 8,
-    color: '#333',
-    fontSize: 15,
-  },
-
   budgetHeading: {
     alignSelf: 'center',
-    marginTop: 80,
-    marginBottom: 18,
-    fontSize: 18,
-    color: '#444',
+    marginTop: 44,
+    marginBottom: 16,
+    fontSize: 17,
+    fontWeight: '600',
+    color: UI.textSecondary,
   },
-
   budgetBox: {
-    width: 210,
-    height: 72,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    minWidth: 210,
+    paddingHorizontal: 20,
+    height: 76,
+    backgroundColor: UI.card,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D9D9D9',
+    borderColor: UI.borderPill,
     alignSelf: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-
   currency: {
     fontSize: 26,
-    color: '#111',
-    fontWeight: '600',
+    color: UI.text,
+    fontWeight: '700',
+    marginRight: 4,
   },
-
   budgetInput: {
     fontSize: 28,
-    color: '#111',
-    minWidth: 50,
+    color: UI.text,
+    fontWeight: '800',
+    minWidth: 48,
     textAlign: 'center',
+    padding: 0,
   },
-
   perHour: {
     fontSize: 22,
-    color: '#111',
-    fontWeight: '600',
+    color: UI.text,
+    fontWeight: '700',
+    marginLeft: 2,
   },
-
-  updateButton: {
-    marginTop: 70,
-    borderWidth: 1,
-    borderColor: '#3A3AFF',
+  budgetHint: {
     alignSelf: 'center',
-    borderRadius: 10,
-    paddingHorizontal: 30,
-    paddingVertical: 14,
-  },
-
-  updateText: {
-    color: '#3A3AFF',
-    fontSize: 15,
+    marginTop: 10,
+    fontSize: 12,
+    color: UI.textHint,
     fontWeight: '500',
   },
-
+  updateButton: {
+    marginTop: 40,
+    alignSelf: 'center',
+    backgroundColor: '#E8EDF8',
+    borderWidth: 1,
+    borderColor: '#B8C9E8',
+    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+  },
+  updateButtonPressed: {
+    opacity: 0.88,
+  },
+  updateText: {
+    color: UI.brandMuted,
+    fontSize: 15,
+    fontWeight: '700',
+  },
   finishButton: {
-    marginTop: 55,
-    backgroundColor: '#003B57',
-    width: 190,
-    height: 58,
-    borderRadius: 30,
+    marginTop: 28,
+    backgroundColor: UI.brand,
+    minWidth: 220,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 28,
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: UI.brand,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
   },
-
+  finishButtonPressed: {
+    opacity: 0.92,
+  },
+  finishButtonDisabled: {
+    opacity: 0.75,
+  },
   finishText: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '800',
   },
-
 });

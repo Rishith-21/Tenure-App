@@ -1,5 +1,7 @@
 import React, {useState} from 'react';
 import DateTimePickerField from '../components/ui/DateTimePickerField';
+import RemovableChip from '../components/ui/RemovableChip';
+import SocialLinkSheet from '../components/profile/SocialLinkSheet';
 import {
   View,
   Text,
@@ -8,13 +10,31 @@ import {
   Pressable,
   ScrollView,
   TextInput,
+  Linking,
 } from 'react-native';
 import {showPhotoPickerActions} from '../utils/chatMedia';
 import {useAppDialog} from '../context/DialogContext';
+import {
+  PROFESSION_OPTIONS,
+  SOCIAL_PLATFORMS,
+  SocialPlatform,
+  VEHICLE_OPTIONS,
+} from '../constants/profileOptions';
+import {UI, uiLayout} from '../theme/ui';
+import BackButton from '../components/navigation/BackButton';
+import {goBackSafe} from '../navigation/navigationActions';
 
 const WEEK_DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 type ChipItem = {id: string; label: string; icon?: string};
+
+export type SocialLinkItem = {
+  id: string;
+  platformId: string;
+  label: string;
+  icon: string;
+  url: string;
+};
 
 const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
   const {showAlert, showChoice} = useAppDialog();
@@ -30,24 +50,17 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
     d.setHours(17, 30, 0, 0);
     return d;
   });
-  const [about, setAbout] = useState('hi i am vikas');
+  const [about, setAbout] = useState('');
   const [vehicleExpanded, setVehicleExpanded] = useState(true);
   const [professionExpanded, setProfessionExpanded] = useState(true);
 
-  const [socialLinks, setSocialLinks] = useState<ChipItem[]>([
-    {id: 'yt', label: 'You tube', icon: '▶'},
-    {id: 'ig', label: 'Instagram', icon: '📷'},
-  ]);
+  const [socialLinks, setSocialLinks] = useState<SocialLinkItem[]>([]);
+  const [vehicles, setVehicles] = useState<ChipItem[]>([]);
+  const [professions, setProfessions] = useState<ChipItem[]>([]);
 
-  const [vehicles, setVehicles] = useState<ChipItem[]>([
-    {id: 'bike', label: 'Bike (petrole)', icon: '🏍'},
-    {id: 'car', label: 'Car (electric)', icon: '🚗'},
-  ]);
-
-  const [professions, setProfessions] = useState<ChipItem[]>([
-    {id: 'doc', label: 'Doctor'},
-    {id: 'cc', label: 'content creater'},
-  ]);
+  const [socialSheetVisible, setSocialSheetVisible] = useState(false);
+  const [pendingPlatform, setPendingPlatform] =
+    useState<SocialPlatform | null>(null);
 
   const toggleDay = (day: string) => {
     setSelectedDays(prev =>
@@ -63,35 +76,132 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
   };
 
   const handleAddSocial = () => {
+    const used = new Set(socialLinks.map(l => l.platformId));
+    const available = SOCIAL_PLATFORMS.filter(p => !used.has(p.id));
+    if (available.length === 0) {
+      showAlert({
+        title: 'All platforms added',
+        message: 'Remove a link to add a different platform.',
+      });
+      return;
+    }
+
     showChoice({
-      title: 'Add link',
+      title: 'Add social profile',
       message: 'Choose a platform',
-      options: [
-        {
-          text: 'YouTube',
-          onPress: () =>
-            setSocialLinks(prev => [
-              ...prev,
-              {id: `yt-${Date.now()}`, label: 'You tube', icon: '▶'},
-            ]),
+      options: available.map(platform => ({
+        text: `${platform.icon} ${platform.label}`,
+        onPress: () => {
+          setPendingPlatform(platform);
+          setSocialSheetVisible(true);
         },
-        {
-          text: 'Instagram',
-          onPress: () =>
-            setSocialLinks(prev => [
-              ...prev,
-              {id: `ig-${Date.now()}`, label: 'Instagram', icon: '📷'},
-            ]),
+      })),
+    });
+  };
+
+  const handleSocialLinkConfirm = (url: string) => {
+    if (!pendingPlatform) {
+      return;
+    }
+    setSocialLinks(prev => [
+      ...prev,
+      {
+        id: `${pendingPlatform.id}-${Date.now()}`,
+        platformId: pendingPlatform.id,
+        label: pendingPlatform.label,
+        icon: pendingPlatform.icon,
+        url,
+      },
+    ]);
+    setPendingPlatform(null);
+  };
+
+  const openSocialLink = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      showAlert({
+        title: 'Could not open link',
+        message: 'Check that the URL is valid.',
+      });
+    }
+  };
+
+  const addVehicle = (vehicleId: string) => {
+    const option = VEHICLE_OPTIONS.find(v => v.id === vehicleId);
+    if (!option) {
+      return;
+    }
+    setVehicles(prev => {
+      if (prev.some(v => v.id === vehicleId)) {
+        return prev;
+      }
+      return [
+        ...prev,
+        {id: vehicleId, label: option.label, icon: option.icon},
+      ];
+    });
+  };
+
+  const handleAddVehicle = () => {
+    const hasBike = vehicles.some(v => v.id === 'bike');
+    const hasCar = vehicles.some(v => v.id === 'car');
+
+    const options: {text: string; onPress: () => void}[] = [];
+    if (!hasBike) {
+      options.push({text: '🏍 Bike', onPress: () => addVehicle('bike')});
+    }
+    if (!hasCar) {
+      options.push({text: '🚗 Car', onPress: () => addVehicle('car')});
+    }
+    if (!hasBike && !hasCar) {
+      options.push({
+        text: '🏍 + 🚗 Bike & Car',
+        onPress: () => {
+          addVehicle('bike');
+          addVehicle('car');
         },
-        {
-          text: 'Website',
-          onPress: () =>
-            setSocialLinks(prev => [
-              ...prev,
-              {id: `web-${Date.now()}`, label: 'Own website', icon: '🌐'},
-            ]),
-        },
-      ],
+      });
+    }
+
+    if (options.length === 0) {
+      showAlert({
+        title: 'Vehicles added',
+        message: 'You already added bike and car.',
+      });
+      return;
+    }
+
+    showChoice({
+      title: 'Add vehicle',
+      message: 'What do you have?',
+      options,
+    });
+  };
+
+  const handleAddProfession = () => {
+    const used = new Set(professions.map(p => p.label));
+    const available = PROFESSION_OPTIONS.filter(p => !used.has(p));
+
+    if (available.length === 0) {
+      showAlert({
+        title: 'No more options',
+        message: 'All profession options are already added.',
+      });
+      return;
+    }
+
+    showChoice({
+      title: 'Add profession',
+      message: 'Select one',
+      options: available.map(label => ({
+        text: label,
+        onPress: () =>
+          setProfessions(prev => [
+            ...prev,
+            {id: `prof-${label}-${Date.now()}`, label},
+          ]),
+      })),
     });
   };
 
@@ -103,37 +213,17 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
     });
   };
 
-  const renderRemovableChips = (
-    items: ChipItem[],
-    onRemove: (id: string) => void,
-  ) => (
-    <View style={styles.chipWrap}>
-      {items.map(item => (
-        <View key={item.id} style={styles.removableChip}>
-          {item.icon ? (
-            <Text style={styles.chipIcon}>{item.icon}</Text>
-          ) : null}
-          <Text style={styles.chipLabel}>{item.label}</Text>
-          <Pressable onPress={() => onRemove(item.id)} hitSlop={8}>
-            <Text style={styles.chipRemove}>✕</Text>
-          </Pressable>
-        </View>
-      ))}
-    </View>
-  );
-
   return (
     <>
-      <StatusBar backgroundColor="#F7F2EA" barStyle="dark-content" />
+      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
 
       <View style={styles.container}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={12}>
-          <Text style={styles.backArrow}>←</Text>
-        </Pressable>
+        <BackButton onPress={() => goBackSafe(navigation)} />
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scroll}>
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled">
           <Text style={styles.sectionLabel}>Set available time</Text>
 
           <View style={styles.timeCard}>
@@ -173,13 +263,45 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
           <Text style={styles.sectionLabel}>Social media links / website</Text>
 
           <View style={styles.socialRow}>
-            <Pressable style={styles.addLinkBtn} onPress={handleAddSocial}>
-              <Text style={styles.addLinkIcon}>🔗</Text>
-              <Text style={styles.addLinkPlus}>+</Text>
+            <Pressable
+              style={({pressed}) => [
+                styles.addCircleBtn,
+                pressed && styles.addCircleBtnPressed,
+              ]}
+              onPress={handleAddSocial}>
+              <Text style={styles.addCircleIcon}>+</Text>
             </Pressable>
-            <View style={styles.socialChipsCol}>
-              {renderRemovableChips(socialLinks, id =>
-                removeChip(id, setSocialLinks),
+            <View style={styles.socialList}>
+              {socialLinks.length === 0 ? (
+                <Text style={styles.emptyHint}>
+                  Add Instagram, Facebook, YouTube, or your website
+                </Text>
+              ) : (
+                socialLinks.map(link => (
+                  <Pressable
+                    key={link.id}
+                    style={styles.socialCard}
+                    onPress={() => openSocialLink(link.url)}>
+                    <View style={styles.socialCardText}>
+                      <Text style={styles.socialCardTitle}>
+                        {link.icon} {link.label}
+                      </Text>
+                      <Text style={styles.socialCardUrl} numberOfLines={1}>
+                        {link.url}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() =>
+                        setSocialLinks(prev =>
+                          prev.filter(item => item.id !== link.id),
+                        )
+                      }
+                      hitSlop={10}
+                      style={styles.socialRemoveHit}>
+                      <Text style={styles.socialRemove}>×</Text>
+                    </Pressable>
+                  </Pressable>
+                ))
               )}
             </View>
           </View>
@@ -190,19 +312,57 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
             <Text style={styles.expandTitle}>I have a Vehicle</Text>
             <Text style={styles.chevron}>{vehicleExpanded ? '∧' : '∨'}</Text>
           </Pressable>
-          {vehicleExpanded &&
-            renderRemovableChips(vehicles, id => removeChip(id, setVehicles))}
+          {vehicleExpanded ? (
+            <View style={styles.expandBody}>
+              <View style={styles.chipRow}>
+                {vehicles.map(v => (
+                  <RemovableChip
+                    key={v.id}
+                    label={`${v.icon ? `${v.icon} ` : ''}${v.label}`}
+                    onRemove={() => removeChip(v.id, setVehicles)}
+                  />
+                ))}
+              </View>
+              <Pressable
+                style={({pressed}) => [
+                  styles.addPillBtn,
+                  pressed && styles.addPillBtnPressed,
+                ]}
+                onPress={handleAddVehicle}>
+                <Text style={styles.addPillText}>+ Add vehicle</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <Pressable
             style={styles.expandHeader}
             onPress={() => setProfessionExpanded(v => !v)}>
             <Text style={styles.expandTitle}>I am</Text>
-            <Text style={styles.chevron}>{professionExpanded ? '∧' : '∨'}</Text>
+            <Text style={styles.chevron}>
+              {professionExpanded ? '∧' : '∨'}
+            </Text>
           </Pressable>
-          {professionExpanded &&
-            renderRemovableChips(professions, id =>
-              removeChip(id, setProfessions),
-            )}
+          {professionExpanded ? (
+            <View style={styles.expandBody}>
+              <View style={styles.chipRow}>
+                {professions.map(p => (
+                  <RemovableChip
+                    key={p.id}
+                    label={p.label}
+                    onRemove={() => removeChip(p.id, setProfessions)}
+                  />
+                ))}
+              </View>
+              <Pressable
+                style={({pressed}) => [
+                  styles.addPillBtn,
+                  pressed && styles.addPillBtnPressed,
+                ]}
+                onPress={handleAddProfession}>
+                <Text style={styles.addPillText}>+ Add profession</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <Text style={styles.sectionLabel}>About</Text>
           <TextInput
@@ -211,7 +371,7 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
             onChangeText={setAbout}
             multiline
             placeholder="Tell others about you"
-            placeholderTextColor="#999999"
+            placeholderTextColor={UI.textHint}
           />
 
           <Text style={styles.sectionLabel}>
@@ -227,7 +387,7 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
                 }),
               )
             }>
-            <Text style={styles.galleryPillText}>Galary</Text>
+            <Text style={styles.galleryPillText}>Gallery</Text>
             <Text style={styles.galleryPillIcon}>↻</Text>
           </Pressable>
 
@@ -236,6 +396,16 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
           </Pressable>
         </ScrollView>
       </View>
+
+      <SocialLinkSheet
+        visible={socialSheetVisible}
+        platform={pendingPlatform}
+        onClose={() => {
+          setSocialSheetVisible(false);
+          setPendingPlatform(null);
+        }}
+        onConfirm={handleSocialLinkConfirm}
+      />
     </>
   );
 };
@@ -245,13 +415,13 @@ export default ProfileUpdateMoreScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F2EA',
+    backgroundColor: UI.bgCream,
     paddingTop: 48,
     paddingHorizontal: 20,
   },
   backArrow: {
     fontSize: 28,
-    color: '#111111',
+    color: UI.text,
     marginBottom: 16,
   },
   scroll: {
@@ -260,59 +430,30 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111111',
+    color: UI.text,
     marginBottom: 14,
     marginTop: 8,
   },
   timeCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: UI.card,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 16,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#E8E0D6',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: UI.borderInput,
   },
   timeRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 6,
   },
-  timeCapsule: {
-    backgroundColor: '#003B57',
-    borderRadius: 28,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  timeCapsuleText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
   timeTo: {
-    marginHorizontal: 8,
+    marginHorizontal: 4,
     fontSize: 14,
     fontWeight: '700',
-    color: '#111111',
-  },
-  changeBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginLeft: 6,
-    borderWidth: 1,
-    borderColor: '#D5D5D5',
-  },
-  changeBtnText: {
-    fontSize: 12,
-    color: '#333333',
-    fontWeight: '600',
+    color: UI.text,
+    marginBottom: 14,
   },
   daysRow: {
     flexDirection: 'row',
@@ -323,20 +464,20 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: UI.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: UI.borderPill,
   },
   dayChipActive: {
-    backgroundColor: '#003B57',
-    borderColor: '#003B57',
+    backgroundColor: UI.brand,
+    borderColor: UI.brand,
   },
   dayText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#666666',
+    color: UI.textMuted,
   },
   dayTextActive: {
     color: '#FFFFFF',
@@ -346,58 +487,70 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
-  addLinkBtn: {
+  addCircleBtn: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#003B57',
+    backgroundColor: UI.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    position: 'relative',
   },
-  addLinkIcon: {
-    fontSize: 20,
+  addCircleBtnPressed: {
+    opacity: 0.9,
+  },
+  addCircleIcon: {
+    fontSize: 28,
     color: '#FFFFFF',
+    fontWeight: '300',
+    marginTop: -2,
   },
-  addLinkPlus: {
-    position: 'absolute',
-    bottom: 6,
-    right: 8,
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  socialChipsCol: {
+  socialList: {
     flex: 1,
+    gap: 8,
   },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  emptyHint: {
+    fontSize: 13,
+    color: UI.textHint,
+    lineHeight: 18,
+    paddingTop: 8,
   },
-  removableChip: {
+  socialCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E4E8EC',
-    borderRadius: 22,
-    paddingHorizontal: 14,
+    backgroundColor: UI.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: UI.borderInput,
     paddingVertical: 10,
-    marginRight: 8,
-    marginBottom: 8,
+    paddingLeft: 14,
+    paddingRight: 8,
   },
-  chipIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  chipLabel: {
-    fontSize: 14,
-    color: '#333333',
-    fontWeight: '500',
+  socialCardText: {
+    flex: 1,
     marginRight: 8,
   },
-  chipRemove: {
+  socialCardTitle: {
     fontSize: 14,
-    color: '#888888',
+    fontWeight: '700',
+    color: UI.text,
+    marginBottom: 2,
+  },
+  socialCardUrl: {
+    fontSize: 12,
+    color: UI.brandMuted,
+  },
+  socialRemoveHit: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F0F4F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  socialRemove: {
+    fontSize: 18,
+    color: UI.textMuted,
     fontWeight: '700',
   },
   expandHeader: {
@@ -410,29 +563,50 @@ const styles = StyleSheet.create({
   expandTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111111',
+    color: UI.text,
   },
   chevron: {
     fontSize: 18,
-    color: '#333333',
+    color: UI.textSecondary,
+  },
+  expandBody: {
+    marginBottom: 16,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  addPillBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#E8EDF8',
+    borderWidth: 1,
+    borderColor: '#B8C9E8',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  addPillBtnPressed: {
+    opacity: 0.88,
+  },
+  addPillText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: UI.brand,
   },
   aboutInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    ...uiLayout.inputField,
+    minHeight: 100,
+    textAlignVertical: 'top',
     fontSize: 15,
-    color: '#111111',
-    minHeight: 56,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E8E0D6',
   },
   galleryPill: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E4E8EC',
+    backgroundColor: UI.chip,
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -441,15 +615,15 @@ const styles = StyleSheet.create({
   galleryPillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#333333',
+    color: UI.textSecondary,
     marginRight: 8,
   },
   galleryPillIcon: {
     fontSize: 14,
-    color: '#555555',
+    color: UI.textMuted,
   },
   saveButton: {
-    backgroundColor: '#003B57',
+    backgroundColor: UI.brand,
     borderRadius: 28,
     paddingVertical: 18,
     alignItems: 'center',

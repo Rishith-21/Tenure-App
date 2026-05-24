@@ -1,4 +1,5 @@
 import React, {useMemo, useRef, useState} from 'react';
+import {usePreventAuthBackOnHome} from '../hooks/usePreventAuthBackOnHome';
 import {
   View,
   Text,
@@ -11,8 +12,12 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import HomeUpdateModal from '../components/home/HomeUpdateModal';
-import HomeMapPlaceholder from '../components/home/HomeMapPlaceholder';
+import HomeUpdateModal, {
+  MenuAnchor,
+} from '../components/home/HomeUpdateModal';
+import {UI} from '../theme/ui';
+import HomeMapView from '../components/home/HomeMapView';
+import HomeSearchOverlay from '../components/home/HomeSearchOverlay';
 import {useAppDialog} from '../context/DialogContext';
 import {useMateRequestsStore} from '../store/mateRequestsStore';
 import {useActiveSessionStore} from '../store/activeSessionStore';
@@ -32,8 +37,14 @@ const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.62;
 const CURRENT_USER_AVATAR = 'https://i.pravatar.cc/150?img=5';
 
 const HomeScreen = ({navigation}: any) => {
+  usePreventAuthBackOnHome();
   const {showAlert} = useAppDialog();
   const [updateModalVisible, setUpdateModalVisible] = useState(false);
+  const [updateMenuAnchor, setUpdateMenuAnchor] = useState<MenuAnchor | null>(
+    null,
+  );
+  const [searchOpen, setSearchOpen] = useState(false);
+  const profileChipRef = useRef<View>(null);
 
   const sent = useMateRequestsStore(s => s.sent);
   const received = useMateRequestsStore(s => s.received);
@@ -42,6 +53,18 @@ const HomeScreen = ({navigation}: any) => {
     activeSession?.startedAt ?? null,
     Boolean(activeSession),
   );
+
+  const openUpdateMenu = () => {
+    profileChipRef.current?.measureInWindow((x, y, width, height) => {
+      setUpdateMenuAnchor({x, y, width, height});
+      setUpdateModalVisible(true);
+    });
+  };
+
+  const closeUpdateMenu = () => {
+    setUpdateModalVisible(false);
+    setUpdateMenuAnchor(null);
+  };
 
   const pendingSent = sent.filter(r => r.status === 'pending');
   const confirmedSent = sent.filter(r => r.status === 'confirmed');
@@ -221,15 +244,22 @@ const HomeScreen = ({navigation}: any) => {
 
             </View>
 
-            <View style={styles.updateRow}>
-              <Image
-                source={{uri: CURRENT_USER_AVATAR}}
-                style={styles.headerAvatar}
-              />
+            <View ref={profileChipRef} collapsable={false}>
               <Pressable
-                style={styles.updateButton}
-                onPress={() => setUpdateModalVisible(true)}>
-                <Text style={styles.updateButtonText}>Update</Text>
+                style={({pressed}) => [
+                  styles.profileChip,
+                  pressed && styles.profileChipPressed,
+                  updateModalVisible && styles.profileChipActive,
+                ]}
+                onPress={openUpdateMenu}
+                accessibilityRole="button"
+                accessibilityLabel="Profile and settings menu">
+                <Image
+                  source={{uri: CURRENT_USER_AVATAR}}
+                  style={styles.chipAvatar}
+                />
+                <Text style={styles.chipLabel}>Update</Text>
+                <Text style={styles.chipChevron}>▾</Text>
               </Pressable>
             </View>
 
@@ -237,10 +267,13 @@ const HomeScreen = ({navigation}: any) => {
 
           {/* Search */}
           <Pressable
-            style={styles.searchBar}
-            onPress={() => navigation.getParent()?.navigate('Search')}>
+            style={({pressed}) => [
+              styles.searchBar,
+              pressed && styles.searchBarPressed,
+            ]}
+            onPress={() => setSearchOpen(true)}>
             <Text style={styles.searchIcon}>⌕</Text>
-            <Text style={styles.searchText}>Search</Text>
+            <Text style={styles.searchText}>Search mates, categories…</Text>
             <Text style={styles.heartIcon}>♡</Text>
           </Pressable>
 
@@ -248,7 +281,7 @@ const HomeScreen = ({navigation}: any) => {
 
         {/* Map */}
         <View style={styles.mapContainer}>
-          <HomeMapPlaceholder />
+          <HomeMapView />
         </View>
 
         {/* Drawer */}
@@ -357,23 +390,30 @@ const HomeScreen = ({navigation}: any) => {
 
       </View>
 
+      <HomeSearchOverlay
+        visible={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        stackNavigation={stackNav() ?? undefined}
+      />
+
       <HomeUpdateModal
         visible={updateModalVisible}
+        anchor={updateMenuAnchor}
         profileAvatar={CURRENT_USER_AVATAR}
-        onClose={() => setUpdateModalVisible(false)}
+        onClose={closeUpdateMenu}
         onOpenProfile={() => {
-          setUpdateModalVisible(false);
+          closeUpdateMenu();
           navigation.getParent()?.navigate('UserProfile');
         }}
         onPrivacyPolicy={() => {
-          setUpdateModalVisible(false);
+          closeUpdateMenu();
           showAlert({
             title: 'Privacy Policy',
             message: 'Privacy policy content will be available here.',
           });
         }}
         onTrustyAlert={() => {
-          setUpdateModalVisible(false);
+          closeUpdateMenu();
           showAlert({
             title: 'Trusty alert',
             message: 'Safety alerts and trusted contacts will appear here.',
@@ -423,29 +463,48 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  updateRow: {
+  profileChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: UI.card,
+    borderRadius: 22,
+    paddingLeft: 4,
+    paddingRight: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: UI.borderInput,
+    shadowColor: '#003B57',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  headerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+  profileChipPressed: {
+    opacity: 0.92,
+    transform: [{scale: 0.98}],
+  },
+  profileChipActive: {
+    borderColor: UI.brand,
+    backgroundColor: '#F0F7FA',
+  },
+  chipAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    marginRight: 8,
   },
-  updateButton: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-    borderRadius: 32,
-  },
-
-  updateButtonText: {
-    color: '#111111',
-    fontSize: 15,
+  chipLabel: {
+    fontSize: 13,
     fontWeight: '700',
+    color: UI.brand,
+    marginRight: 2,
+  },
+  chipChevron: {
+    fontSize: 10,
+    color: UI.brandMuted,
+    marginTop: 2,
   },
 
   searchBar: {
@@ -456,6 +515,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E0D6',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  searchBarPressed: {
+    opacity: 0.92,
+    transform: [{scale: 0.99}],
   },
 
   searchIcon: {

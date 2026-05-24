@@ -17,6 +17,7 @@ import {
 } from '../data/mockHistoryAlerts';
 import {MainTabParamList} from '../navigation/MainTabNavigator';
 import {useAppDialog} from '../context/DialogContext';
+import BackButton from '../components/navigation/BackButton';
 
 const FILTER_BADGE_COUNT = 2;
 
@@ -40,12 +41,10 @@ const AlertsScreen = () => {
       <StatusBar backgroundColor="#F9F9F7" barStyle="dark-content" />
 
       <View style={styles.header}>
-        <Pressable
+        <BackButton
           onPress={() => navigation.navigate('Home')}
-          hitSlop={12}
-          style={styles.headerSide}>
-          <Text style={styles.backArrow}>←</Text>
-        </Pressable>
+          accessibilityLabel="Go to home"
+        />
 
         <Text style={styles.headerTitle}>History and Transactions</Text>
 
