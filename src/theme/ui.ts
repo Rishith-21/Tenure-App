@@ -7,6 +7,9 @@ export const UI = {
   bgHome: '#F4F4F4',
   brand: '#003B57',
   brandMuted: '#005E95',
+  /** Primary actions & selected chips (black, not navy) */
+  primary: '#111111',
+  primaryPressed: '#2A2A2A',
   text: '#111111',
   textSecondary: '#444444',
   textMuted: '#666666',
@@ -18,6 +21,8 @@ export const UI = {
   cardMuted: '#E5E7E9',
   chip: '#D8DEE4',
   overlay: 'rgba(17, 24, 39, 0.5)',
+  /** Backdrop behind bottom sheets — fades in place (not slide) */
+  sheetScrim: 'rgba(17, 17, 17, 0.38)',
   success: '#35A853',
   warning: '#E4A000',
   danger: '#C0392B',
@@ -79,7 +84,7 @@ export const uiLayout = {
     elevation: 2,
   } as ViewStyle,
   pillPrimary: {
-    backgroundColor: UI.brand,
+    backgroundColor: UI.primary,
     borderRadius: 28,
     paddingVertical: 18,
     alignItems: 'center',
@@ -103,18 +108,18 @@ export const uiLayout = {
     marginBottom: 14,
   } as ViewStyle,
   infoPill: {
-    backgroundColor: '#F0F7FA',
+    backgroundColor: UI.cardMuted,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#C5DCE6',
+    borderColor: UI.border,
     marginBottom: 12,
   } as ViewStyle,
   infoPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: UI.brand,
+    color: UI.text,
   } as TextStyle,
 };
 

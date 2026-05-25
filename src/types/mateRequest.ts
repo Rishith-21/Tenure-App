@@ -25,4 +25,6 @@ export type MateRequest = {
   expiresInDays?: number;
   /** Sent requests: mate has seen the request (double check). */
   delivered?: boolean;
+  /** Received cards: "she" | "he" → "she requested :" on Home */
+  requesterPronoun?: 'she' | 'he';
 };

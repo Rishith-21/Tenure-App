@@ -5,8 +5,8 @@ import {
   StyleSheet,
   Text,
   View,
-  Modal,
 } from 'react-native';
+import BottomSheetModal from './BottomSheetModal';
 import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
@@ -106,9 +106,8 @@ const DateTimePickerField = ({
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
 
       {Platform.OS === 'ios' ? (
-        <Modal visible={open} transparent animationType="slide">
-          <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
-            <Pressable style={styles.iosSheet} onPress={() => {}}>
+        <BottomSheetModal visible={open} onClose={() => setOpen(false)}>
+          <Pressable style={styles.iosSheet} onPress={() => {}}>
               <View style={uiStyles.sheetHandle} />
               <View style={styles.sheetHeader}>
                 <Pressable onPress={() => setOpen(false)} hitSlop={12}>
@@ -133,9 +132,8 @@ const DateTimePickerField = ({
                 minimumDate={minimumDate}
                 onChange={onPickerChange}
               />
-            </Pressable>
           </Pressable>
-        </Modal>
+        </BottomSheetModal>
       ) : null}
     </View>
   );
@@ -172,11 +170,6 @@ const styles = StyleSheet.create({
     color: UI.textHint,
     marginTop: 6,
     fontStyle: 'italic',
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: UI.overlay,
   },
   iosSheet: {
     ...uiLayout.sheet,

@@ -2,7 +2,10 @@ import {create} from 'zustand';
 import {
   MOCK_ARCHIVED_RECEIVED,
   MOCK_ARCHIVED_SENT,
+  MOCK_RECEIVED_CONFIRMED,
+  MOCK_RECEIVED_PENDING_FLAMINGO,
   MOCK_RECEIVED_REQUESTS,
+  MOCK_SENT_CONFIRMED,
   MOCK_SENT_PENDING,
 } from '../data/mockMateRequests';
 import {MateRequest, MateRequestStatus} from '../types/mateRequest';
@@ -35,8 +38,12 @@ type MateRequestsState = {
 const newId = () => `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 export const useMateRequestsStore = create<MateRequestsState>((set, get) => ({
-  received: [...MOCK_RECEIVED_REQUESTS],
-  sent: [MOCK_SENT_PENDING],
+  received: [
+    ...MOCK_RECEIVED_REQUESTS,
+    MOCK_RECEIVED_CONFIRMED,
+    MOCK_RECEIVED_PENDING_FLAMINGO,
+  ],
+  sent: [MOCK_SENT_PENDING, MOCK_SENT_CONFIRMED],
   archivedReceived: [...MOCK_ARCHIVED_RECEIVED],
   archivedSent: [...MOCK_ARCHIVED_SENT],
 

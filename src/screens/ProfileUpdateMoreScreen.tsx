@@ -21,7 +21,6 @@ import {
   VEHICLE_OPTIONS,
 } from '../constants/profileOptions';
 import {UI, uiLayout} from '../theme/ui';
-import BackButton from '../components/navigation/BackButton';
 import {goBackSafe} from '../navigation/navigationActions';
 
 const WEEK_DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -193,7 +192,7 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
 
     showChoice({
       title: 'Add profession',
-      message: 'Select one',
+      message: 'Pick what best describes you',
       options: available.map(label => ({
         text: label,
         onPress: () =>
@@ -215,10 +214,15 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
 
   return (
     <>
-      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
+      <StatusBar backgroundColor={UI.bg} barStyle="dark-content" />
 
       <View style={styles.container}>
-        <BackButton onPress={() => goBackSafe(navigation)} />
+        <Pressable
+          onPress={() => goBackSafe(navigation)}
+          hitSlop={12}
+          style={({pressed}) => pressed && styles.headerBtnPressed}>
+          <Text style={styles.headerBack}>←</Text>
+        </Pressable>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -226,7 +230,7 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
           keyboardShouldPersistTaps="handled">
           <Text style={styles.sectionLabel}>Set available time</Text>
 
-          <View style={styles.timeCard}>
+          <View style={styles.timeBlock}>
             <View style={styles.timeRow}>
               <DateTimePickerField
                 mode="time"
@@ -263,13 +267,16 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
           <Text style={styles.sectionLabel}>Social media links / website</Text>
 
           <View style={styles.socialRow}>
-            <Pressable
-              style={({pressed}) => [
-                styles.addCircleBtn,
-                pressed && styles.addCircleBtnPressed,
-              ]}
-              onPress={handleAddSocial}>
-              <Text style={styles.addCircleIcon}>+</Text>
+            <Pressable onPress={handleAddSocial}>
+              {({pressed}) => (
+                <View
+                  style={[
+                    styles.addCircleBtn,
+                    pressed && styles.addCircleBtnPressed,
+                  ]}>
+                  <Text style={styles.addCircleIcon}>+</Text>
+                </View>
+              )}
             </Pressable>
             <View style={styles.socialList}>
               {socialLinks.length === 0 ? (
@@ -324,12 +331,20 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
                 ))}
               </View>
               <Pressable
+                onPress={handleAddVehicle}
                 style={({pressed}) => [
                   styles.addPillBtn,
                   pressed && styles.addPillBtnPressed,
-                ]}
-                onPress={handleAddVehicle}>
-                <Text style={styles.addPillText}>+ Add vehicle</Text>
+                ]}>
+                {({pressed}) => (
+                  <Text
+                    style={[
+                      styles.addPillText,
+                      pressed && styles.addPillTextPressed,
+                    ]}>
+                    + Add vehicle
+                  </Text>
+                )}
               </Pressable>
             </View>
           ) : null}
@@ -354,12 +369,20 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
                 ))}
               </View>
               <Pressable
+                onPress={handleAddProfession}
                 style={({pressed}) => [
                   styles.addPillBtn,
                   pressed && styles.addPillBtnPressed,
-                ]}
-                onPress={handleAddProfession}>
-                <Text style={styles.addPillText}>+ Add profession</Text>
+                ]}>
+                {({pressed}) => (
+                  <Text
+                    style={[
+                      styles.addPillText,
+                      pressed && styles.addPillTextPressed,
+                    ]}>
+                    + Add profession
+                  </Text>
+                )}
               </Pressable>
             </View>
           ) : null}
@@ -391,7 +414,12 @@ const ProfileUpdateMoreScreen = ({navigation, route}: any) => {
             <Text style={styles.galleryPillIcon}>↻</Text>
           </Pressable>
 
-          <Pressable style={styles.saveButton} onPress={handleSave}>
+          <Pressable
+            style={({pressed}) => [
+              styles.saveButton,
+              pressed && styles.saveButtonPressed,
+            ]}
+            onPress={handleSave}>
             <Text style={styles.saveButtonText}>Update</Text>
           </Pressable>
         </ScrollView>
@@ -415,33 +443,34 @@ export default ProfileUpdateMoreScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: UI.bgCream,
+    backgroundColor: UI.bg,
     paddingTop: 48,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
-  backArrow: {
-    fontSize: 28,
+  headerBack: {
+    fontSize: 26,
     color: UI.text,
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  headerBtnPressed: {
+    opacity: 0.5,
   },
   scroll: {
     paddingBottom: 40,
   },
   sectionLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: UI.text,
-    marginBottom: 14,
-    marginTop: 8,
+    marginBottom: 12,
+    marginTop: 6,
   },
-  timeCard: {
-    backgroundColor: UI.card,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: UI.borderInput,
+  timeBlock: {
+    backgroundColor: UI.cardMuted,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 14,
   },
   timeRow: {
     flexDirection: 'row',
@@ -471,8 +500,8 @@ const styles = StyleSheet.create({
     borderColor: UI.borderPill,
   },
   dayChipActive: {
-    backgroundColor: UI.brand,
-    borderColor: UI.brand,
+    backgroundColor: UI.primary,
+    borderColor: UI.primary,
   },
   dayText: {
     fontSize: 10,
@@ -488,19 +517,19 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   addCircleBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: UI.brand,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: UI.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   addCircleBtnPressed: {
-    opacity: 0.9,
+    backgroundColor: UI.primaryPressed,
   },
   addCircleIcon: {
-    fontSize: 28,
+    fontSize: 26,
     color: '#FFFFFF',
     fontWeight: '300',
     marginTop: -2,
@@ -538,13 +567,13 @@ const styles = StyleSheet.create({
   },
   socialCardUrl: {
     fontSize: 12,
-    color: UI.brandMuted,
+    color: UI.textMuted,
   },
   socialRemoveHit: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F0F4F8',
+    backgroundColor: UI.cardMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -580,20 +609,24 @@ const styles = StyleSheet.create({
   },
   addPillBtn: {
     alignSelf: 'flex-start',
-    backgroundColor: '#E8EDF8',
+    backgroundColor: UI.cardMuted,
     borderWidth: 1,
-    borderColor: '#B8C9E8',
-    borderRadius: 20,
+    borderColor: UI.border,
+    borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
   addPillBtnPressed: {
-    opacity: 0.88,
+    backgroundColor: UI.primary,
+    borderColor: UI.primary,
   },
   addPillText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: UI.brand,
+    fontWeight: '600',
+    color: UI.text,
+  },
+  addPillTextPressed: {
+    color: '#FFFFFF',
   },
   aboutInput: {
     ...uiLayout.inputField,
@@ -623,15 +656,18 @@ const styles = StyleSheet.create({
     color: UI.textMuted,
   },
   saveButton: {
-    backgroundColor: UI.brand,
-    borderRadius: 28,
-    paddingVertical: 18,
+    backgroundColor: UI.primary,
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 20,
   },
+  saveButtonPressed: {
+    backgroundColor: UI.primaryPressed,
+  },
   saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
 });

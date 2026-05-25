@@ -69,6 +69,27 @@ export function getElapsedSecondsSince(startedAtMs: number): number {
   return Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
 }
 
+export function isMeetToday(dateTime: string): boolean {
+  const d = parseMateDateTime(dateTime);
+  if (!d) {
+    return false;
+  }
+  const today = new Date();
+  return (
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear()
+  );
+}
+
+/** Section header in Home drawer — "Today" or dd-mm-yyyy */
+export function meetSectionLabel(dateTime: string): string {
+  if (isMeetToday(dateTime)) {
+    return 'Today';
+  }
+  return extractMeetDateLabel(dateTime);
+}
+
 export function extractMeetDateLabel(dateTime: string): string {
   const d = parseMateDateTime(dateTime);
   if (!d) {

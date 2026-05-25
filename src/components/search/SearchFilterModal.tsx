@@ -1,12 +1,6 @@
 import React from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import {View, Text, StyleSheet, Pressable, ScrollView} from 'react-native';
+import BottomSheetModal from '../ui/BottomSheetModal';
 import {Dropdown} from 'react-native-element-dropdown';
 
 export type SearchFilters = {
@@ -50,13 +44,8 @@ const SearchFilterModal = ({
   onApply,
   onReset,
 }: Props) => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="fade"
-    onRequestClose={onClose}>
-    <Pressable style={styles.overlay} onPress={onClose}>
-      <Pressable style={styles.card} onPress={e => e.stopPropagation()}>
+  <BottomSheetModal visible={visible} onClose={onClose}>
+    <Pressable style={styles.card} onPress={() => {}}>
         <View style={styles.handle} />
 
         <Text style={styles.title}>Filter mates</Text>
@@ -152,19 +141,13 @@ const SearchFilterModal = ({
             <Text style={styles.applyText}>Apply filters</Text>
           </Pressable>
         </View>
-      </Pressable>
     </Pressable>
-  </Modal>
+  </BottomSheetModal>
 );
 
 export default SearchFilterModal;
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.45)',
-    justifyContent: 'flex-end',
-  },
   card: {
     backgroundColor: '#E8F4FC',
     borderTopLeftRadius: 28,

@@ -1,5 +1,9 @@
 import {MateRequest} from '../types/mateRequest';
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const today = new Date();
+const TODAY_MEET_DATE = `${pad2(today.getDate())}-${pad2(today.getMonth() + 1)}-${today.getFullYear()}`;
+
 /** Incoming requests shown on Requests → received tab (demo). */
 export const MOCK_RECEIVED_REQUESTS: MateRequest[] = [
   {
@@ -16,6 +20,7 @@ export const MOCK_RECEIVED_REQUESTS: MateRequest[] = [
     message: 'Need help at hospital visit',
     status: 'pending',
     sentAt: '18-05-2026 9:00 am',
+    requesterPronoun: 'he',
   },
   {
     id: 'recv-duck',
@@ -32,8 +37,66 @@ export const MOCK_RECEIVED_REQUESTS: MateRequest[] = [
     message: 'are u availabe, I will pay vechile rent amount',
     status: 'pending',
     sentAt: '21-05-2026 10:15 am',
+    requesterPronoun: 'she',
   },
 ];
+
+/** Pink card — you requested, confirmed (demo). */
+export const MOCK_SENT_CONFIRMED: MateRequest = {
+  id: 'sent-eagle-confirmed',
+  direction: 'sent',
+  mateUserId: 'u-eagle',
+  mateName: 'Eagle',
+  mateUsername: 'eagle v533',
+  mateTenureId: 'FGR45IH',
+  mateAvatar: 'https://i.pravatar.cc/150?img=32',
+  categoryId: 'movie',
+  categoryLabel: 'Movie Mate',
+  meetLocation: 'India, karnataka, udupi, 576111',
+  fromDateTime: `${TODAY_MEET_DATE} 4:00 pm`,
+  toDateTime: `${TODAY_MEET_DATE} 8:00 pm`,
+  message: 'Movie mate confirmed',
+  status: 'confirmed',
+  sentAt: '20-05-2026 2:30 pm',
+  delivered: true,
+};
+
+/** Cream card — she requested, confirmed (demo). */
+export const MOCK_RECEIVED_CONFIRMED: MateRequest = {
+  id: 'recv-spider-confirmed',
+  direction: 'received',
+  mateUserId: 'u-spider',
+  mateName: 'Spider',
+  mateTenureId: 'FGR45IH',
+  mateAvatar: 'https://i.pravatar.cc/150?img=15',
+  categoryId: 'hospital',
+  categoryLabel: 'Hospital Mate',
+  meetLocation: 'India, karnataka, mangalore, 575001',
+  fromDateTime: '26-12-2026 8:00 am',
+  toDateTime: '26-12-2026 12:00 pm',
+  message: '',
+  status: 'confirmed',
+  sentAt: '10-12-2026',
+  requesterPronoun: 'she',
+};
+
+/** White card — he requested, yet to confirm (demo). */
+export const MOCK_RECEIVED_PENDING_FLAMINGO: MateRequest = {
+  id: 'recv-flamingo-pending',
+  direction: 'received',
+  mateName: 'Flamingo',
+  mateTenureId: 'FGR45IH',
+  mateAvatar: 'https://i.pravatar.cc/150?img=45',
+  categoryId: 'shopping',
+  categoryLabel: 'Shopping Mate',
+  meetLocation: 'India, karnataka, udupi, 576111',
+  fromDateTime: '26-12-2026 3:00 pm',
+  toDateTime: '26-12-2026 6:00 pm',
+  message: '',
+  status: 'pending',
+  sentAt: '18-12-2026',
+  requesterPronoun: 'he',
+};
 
 /** Active sent request waiting for mate to accept (demo). */
 export const MOCK_SENT_PENDING: MateRequest = {

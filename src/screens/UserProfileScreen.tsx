@@ -16,8 +16,7 @@ import {shareTenureProfile} from '../utils/share';
 import ProfileCardEditSheet, {
   ProfileCardEditValues,
 } from '../components/profile/ProfileCardEditSheet';
-import {UI, uiStyles} from '../theme/ui';
-import BackButton from '../components/navigation/BackButton';
+import {UI} from '../theme/ui';
 import {goBackSafe} from '../navigation/navigationActions';
 
 const MY_TENURE_ID = '763GCG76';
@@ -69,29 +68,35 @@ const UserProfileScreen = ({navigation, route}: any) => {
 
   return (
     <>
-      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
+      <StatusBar backgroundColor={UI.bg} barStyle="dark-content" />
 
       <View style={styles.container}>
         <View style={styles.header}>
-          <BackButton onPress={() => goBackSafe(navigation)} />
+          <Pressable
+            onPress={() => goBackSafe(navigation)}
+            hitSlop={12}
+            style={({pressed}) => pressed && styles.headerBtnPressed}>
+            <Text style={styles.headerBack}>←</Text>
+          </Pressable>
 
           <View style={styles.headerRight}>
             <Pressable
+              onPress={handleShare}
               style={({pressed}) => [
-                styles.headerIconBtn,
-                styles.headerIconSpacing,
-                pressed && styles.headerBtnPressed,
-              ]}
-              onPress={handleShare}>
-              <Text style={styles.headerIcon}>↗</Text>
+                styles.shareBtn,
+                pressed && styles.shareBtnPressed,
+              ]}>
+              <Text style={styles.shareBtnIcon}>↗</Text>
+              <Text style={styles.shareBtnLabel}>Share</Text>
             </Pressable>
             <Pressable
+              onPress={() => setMenuVisible(true)}
+              hitSlop={12}
               style={({pressed}) => [
-                styles.headerIconBtn,
+                styles.headerAction,
                 pressed && styles.headerBtnPressed,
-              ]}
-              onPress={() => setMenuVisible(true)}>
-              <Text style={styles.headerIcon}>⋮</Text>
+              ]}>
+              <Text style={styles.headerActionIcon}>⋮</Text>
             </Pressable>
           </View>
         </View>
@@ -123,9 +128,7 @@ const UserProfileScreen = ({navigation, route}: any) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}>
           <View style={styles.profileCard}>
-            <View style={styles.savedListPill}>
-              <Text style={styles.savedList}>Profile in 4 saved list</Text>
-            </View>
+            <Text style={styles.savedList}>Profile in 4 saved list</Text>
 
             <Pressable
               style={({pressed}) => [
@@ -138,31 +141,26 @@ const UserProfileScreen = ({navigation, route}: any) => {
               <Text style={styles.editFabText}>✎</Text>
             </Pressable>
 
-            <View style={styles.avatarRing}>
-              <Image
-                source={{uri: profileCard.profileImage}}
-                style={styles.avatar}
-              />
-            </View>
+            <Image
+              source={{uri: profileCard.profileImage}}
+              style={styles.avatar}
+            />
 
             <Text style={styles.name}>{profileCard.name}</Text>
-            <Text style={styles.meta}>
-              Tenure Id : FGR45IH · Male · Year : 1999
-            </Text>
+            <Text style={styles.metaLine}>Tenure Id : FGR45IH</Text>
+            <Text style={styles.metaLine}>Male Year : 1999</Text>
 
-            <View style={styles.ratePill}>
+            <View style={styles.infoPill}>
               <Text style={styles.rateText}>₹ {profileCard.ratePerHour}/H</Text>
-              <View style={styles.rateInfoBadge}>
-                <Text style={styles.infoIcon}>i</Text>
-              </View>
+              <Text style={styles.infoIcon}>ⓘ</Text>
             </View>
 
-            <Text style={styles.role}>Shopping Partner</Text>
+            <View style={styles.infoPill}>
+              <Text style={styles.roleText}>Shopping Partner</Text>
+            </View>
 
-            <View style={styles.locationRow}>
-              <View style={styles.mapPinWrap}>
-                <Text style={styles.mapPin}>📍</Text>
-              </View>
+            <View style={[styles.infoPill, styles.locationPill]}>
+              <Text style={styles.mapPin}>📍</Text>
               <Text style={styles.locationText}>{profileCard.location}</Text>
             </View>
 
@@ -184,7 +182,6 @@ const UserProfileScreen = ({navigation, route}: any) => {
               navigation.navigate('ProfileUpdateMore', {selectedDays})
             }>
             <Text style={styles.updateMoreText}>Update more</Text>
-            <Text style={styles.updateMoreArrow}>→</Text>
           </Pressable>
 
           <Pressable
@@ -195,24 +192,17 @@ const UserProfileScreen = ({navigation, route}: any) => {
             onPress={() =>
               navigation.navigate('Gallery', {title: 'My Gallery'})
             }>
-            <View style={styles.galleryLeft}>
-              <Text style={styles.galleryIcon}>🖼</Text>
-              <Text style={styles.galleryText}>Gallery</Text>
-            </View>
-            <Text style={styles.galleryChevron}>›</Text>
+            <Text style={styles.galleryIcon}>🖼</Text>
+            <Text style={styles.galleryText}>Gallery</Text>
           </Pressable>
 
-          <View style={styles.sectionCard}>
+          <View style={styles.availabilityBlock}>
             <View style={styles.sectionTitleRow}>
-              <View style={styles.sectionIconWrap}>
-                <Text style={styles.sectionIcon}>🕐</Text>
-              </View>
+              <Text style={styles.sectionIcon}>🕐</Text>
               <Text style={styles.sectionTitle}>Available Time</Text>
             </View>
 
-            <View style={styles.timeRangePill}>
-              <Text style={styles.timeRange}>05:30 PM TO 05:30 PM</Text>
-            </View>
+            <Text style={styles.timeRange}>05:30 PM TO 05:30 PM</Text>
 
             <View style={styles.daysRow}>
               {WEEK_DAYS.map(day => {
@@ -235,42 +225,37 @@ const UserProfileScreen = ({navigation, route}: any) => {
             </View>
           </View>
 
-          <View style={styles.socialSection}>
-            <Text style={styles.socialSectionTitle}>Social links</Text>
-            <View style={styles.socialGrid}>
-              <Pressable
-                style={({pressed}) => [
-                  styles.socialPill,
-                  styles.youtubePill,
-                  pressed && styles.socialPillPressed,
-                ]}>
-                <Text style={styles.socialEmoji}>▶</Text>
-                <Text style={styles.socialLabel}>You tube</Text>
-              </Pressable>
+          <View style={styles.socialGrid}>
+            <Pressable
+              style={({pressed}) => [
+                styles.socialPill,
+                pressed && styles.socialPillPressed,
+              ]}>
+              <Text style={styles.socialEmoji}>▶</Text>
+              <Text style={styles.socialLabel}>YouTube</Text>
+            </Pressable>
 
-              <Pressable
-                style={({pressed}) => [
-                  styles.socialPill,
-                  styles.instagramPill,
-                  pressed && styles.socialPillPressed,
-                ]}>
-                <Text style={styles.socialEmoji}>📷</Text>
-                <Text style={styles.socialLabel}>Instagram</Text>
-              </Pressable>
+            <Pressable
+              style={({pressed}) => [
+                styles.socialPill,
+                pressed && styles.socialPillPressed,
+              ]}>
+              <Text style={styles.socialEmoji}>📷</Text>
+              <Text style={styles.socialLabel}>Instagram</Text>
+            </Pressable>
 
-              <Pressable
-                style={({pressed}) => [
-                  styles.socialPill,
-                  styles.websitePill,
-                  pressed && styles.socialPillPressed,
-                ]}>
-                <Text style={styles.socialEmoji}>🌐</Text>
-                <Text style={styles.socialLabel}>Own website</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              style={({pressed}) => [
+                styles.socialPill,
+                styles.socialPillWide,
+                pressed && styles.socialPillPressed,
+              ]}>
+              <Text style={styles.socialEmoji}>🌐</Text>
+              <Text style={styles.socialLabel}>Own website</Text>
+            </Pressable>
           </View>
 
-          <View style={styles.reviewsCard}>
+          <View style={styles.reviewsRow}>
             <Pressable
               style={({pressed}) => [
                 styles.commentsButton,
@@ -298,475 +283,363 @@ const UserProfileScreen = ({navigation, route}: any) => {
 
 export default UserProfileScreen;
 
-const cardShadow = {
-  shadowColor: '#000',
-  shadowOffset: {width: 0, height: 3},
-  shadowOpacity: 0.06,
-  shadowRadius: 12,
-  elevation: 3,
-};
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: UI.bgCream,
+    backgroundColor: UI.bg,
     paddingTop: 48,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 14,
+  },
+  headerBack: {
+    fontSize: 26,
+    color: UI.text,
+    fontWeight: '400',
   },
   headerRight: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  headerIconBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: UI.card,
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: UI.primary,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  shareBtnPressed: {
+    backgroundColor: UI.primaryPressed,
+  },
+  shareBtnIcon: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  shareBtnLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  headerAction: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: UI.borderInput,
-    ...cardShadow,
   },
-  headerIconSpacing: {
-    marginRight: 10,
+  headerActionIcon: {
+    fontSize: 20,
+    color: UI.text,
+    fontWeight: '600',
   },
   headerBtnPressed: {
-    opacity: 0.88,
-  },
-  headerIcon: {
-    fontSize: 17,
-    color: UI.brand,
-    fontWeight: '800',
+    opacity: 0.5,
   },
   scroll: {
-    paddingBottom: 48,
+    paddingBottom: 40,
   },
   profileCard: {
-    backgroundColor: UI.card,
-    borderRadius: 28,
-    paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 22,
+    backgroundColor: UI.cardMuted,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 18,
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: UI.border,
-    ...cardShadow,
-  },
-  savedListPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F0F7FA',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#C5DCE6',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   savedList: {
+    alignSelf: 'flex-start',
     fontSize: 12,
-    color: UI.brand,
-    fontWeight: '700',
+    color: UI.brandMuted,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   editFab: {
     position: 'absolute',
-    top: 18,
-    right: 18,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: UI.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: UI.brandMuted,
-    ...cardShadow,
-  },
-  editFabText: {
-    fontSize: 16,
-    color: UI.brand,
-    fontWeight: '600',
-  },
-  editFabPressed: {
-    opacity: 0.85,
-    transform: [{scale: 0.96}],
-  },
-  avatarRing: {
-    padding: 3,
-    borderRadius: 60,
-    borderWidth: 2.5,
-    borderColor: UI.brand,
-    marginBottom: 14,
-  },
-  avatar: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    backgroundColor: UI.cardMuted,
-  },
-  name: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: UI.text,
-    marginBottom: 6,
-    letterSpacing: 0.2,
-  },
-  meta: {
-    fontSize: 13,
-    color: UI.textMuted,
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 14,
-    paddingHorizontal: 8,
-  },
-  ratePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F7FA',
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#C5DCE6',
-  },
-  rateText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: UI.brand,
-    marginRight: 10,
-  },
-  rateInfoBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: UI.card,
-    borderWidth: 1,
-    borderColor: UI.borderPill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoIcon: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: UI.textMuted,
-    fontStyle: 'italic',
-  },
-  role: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: UI.textSecondary,
-    marginBottom: 14,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: UI.bgCream,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    width: '100%',
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: UI.borderInput,
-  },
-  mapPinWrap: {
+    top: 12,
+    right: 12,
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: UI.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    borderWidth: 1,
+    borderColor: UI.border,
+  },
+  editFabText: {
+    fontSize: 14,
+    color: UI.textSecondary,
+  },
+  editFabPressed: {
+    opacity: 0.85,
+  },
+  avatar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: UI.card,
+    marginBottom: 10,
+  },
+  name: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: UI.text,
+    marginBottom: 4,
+  },
+  metaLine: {
+    fontSize: 13,
+    color: UI.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  infoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: UI.card,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginTop: 10,
+    minWidth: 140,
+    gap: 6,
+  },
+  rateText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: UI.text,
+  },
+  infoIcon: {
+    fontSize: 14,
+    color: UI.textHint,
+  },
+  roleText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: UI.text,
+  },
+  locationPill: {
+    width: '100%',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
   },
   mapPin: {
-    fontSize: 15,
+    fontSize: 14,
   },
   locationText: {
     flex: 1,
     fontSize: 13,
     color: UI.textSecondary,
     lineHeight: 18,
-    fontWeight: '500',
   },
   languageRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 8,
+    marginTop: 12,
   },
   languageChip: {
-    backgroundColor: UI.bgCream,
+    backgroundColor: UI.card,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: UI.borderInput,
   },
   languageText: {
     fontSize: 13,
-    color: UI.textSecondary,
-    fontWeight: '600',
+    color: UI.text,
+    fontWeight: '500',
   },
   updateMoreButton: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8EDF8',
-    borderRadius: 20,
-    paddingVertical: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#B8C9E8',
+    backgroundColor: '#D4DCE8',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginBottom: 10,
   },
   updateMorePressed: {
     opacity: 0.9,
   },
   updateMoreText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: UI.brandMuted,
-  },
-  updateMoreArrow: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
-    color: UI.brandMuted,
-    marginLeft: 8,
+    color: UI.text,
   },
   galleryBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: UI.card,
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: UI.border,
-    ...cardShadow,
+    justifyContent: 'center',
+    backgroundColor: UI.cardMuted,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginBottom: 14,
+    gap: 8,
   },
   galleryBarPressed: {
-    opacity: 0.94,
-  },
-  galleryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    opacity: 0.92,
   },
   galleryText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     color: UI.text,
-    marginLeft: 10,
   },
   galleryIcon: {
-    fontSize: 18,
+    fontSize: 16,
   },
-  galleryChevron: {
-    fontSize: 24,
-    color: UI.textHint,
-    fontWeight: '300',
-  },
-  sectionCard: {
-    backgroundColor: UI.card,
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: UI.border,
-    ...cardShadow,
+  availabilityBlock: {
+    marginBottom: 14,
   },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0F7FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
+    marginBottom: 8,
   },
   sectionIcon: {
-    fontSize: 15,
+    fontSize: 14,
+    marginRight: 6,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: UI.text,
-  },
-  timeRangePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: UI.brand,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginBottom: 16,
   },
   timeRange: {
     fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
+    fontWeight: '600',
+    color: UI.text,
+    marginBottom: 12,
   },
   daysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   dayChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: UI.bgCream,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: UI.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: UI.borderPill,
+    borderColor: UI.border,
   },
   dayChipActive: {
-    backgroundColor: UI.brand,
-    borderColor: UI.brand,
+    backgroundColor: UI.primary,
+    borderColor: UI.primary,
   },
   dayText: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 9,
+    fontWeight: '700',
     color: UI.textMuted,
   },
   dayTextActive: {
     color: '#FFFFFF',
-  },
-  socialSection: {
-    marginBottom: 16,
-  },
-  socialSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: UI.textMuted,
-    marginBottom: 12,
-    marginLeft: 4,
   },
   socialGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 10,
+    marginBottom: 14,
   },
   socialPill: {
     width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
+    backgroundColor: UI.card,
+    borderRadius: 22,
     paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-    ...cardShadow,
+    borderColor: UI.border,
+  },
+  socialPillWide: {
+    width: '100%',
   },
   socialPillPressed: {
     opacity: 0.9,
   },
-  youtubePill: {
-    backgroundColor: '#FFF0F0',
-    borderColor: '#F5D0D0',
-  },
-  instagramPill: {
-    backgroundColor: '#F8F0FF',
-    borderColor: '#E8D4F5',
-  },
-  websitePill: {
-    width: '100%',
-    backgroundColor: '#EEF6FF',
-    borderColor: '#C5DCE6',
-  },
   socialEmoji: {
-    fontSize: 17,
-    marginRight: 10,
+    fontSize: 16,
+    marginRight: 8,
   },
   socialLabel: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: UI.text,
   },
-  reviewsCard: {
+  reviewsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: UI.card,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: UI.border,
-    ...cardShadow,
+    paddingVertical: 4,
   },
   commentsButton: {
-    backgroundColor: UI.chip,
+    backgroundColor: UI.cardMuted,
     borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: UI.borderInput,
+    paddingHorizontal: 22,
+    paddingVertical: 11,
   },
   commentsButtonPressed: {
     opacity: 0.88,
   },
   commentsText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: UI.text,
   },
   reviewsBadge: {
     alignItems: 'flex-end',
   },
   reviewsPercent: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: UI.brand,
+    fontSize: 20,
+    fontWeight: '700',
+    color: UI.text,
   },
   reviewsText: {
     fontSize: 12,
     color: UI.textMuted,
-    fontWeight: '600',
     marginTop: 2,
   },
   menuOverlay: {
     flex: 1,
-    backgroundColor: UI.overlay,
+    backgroundColor: UI.sheetScrim,
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
     paddingTop: 100,
-    paddingRight: 20,
+    paddingRight: 18,
   },
   menuDropdown: {
     backgroundColor: UI.card,
-    borderRadius: 16,
-    minWidth: 168,
-    paddingVertical: 6,
+    borderRadius: 12,
+    minWidth: 160,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: UI.border,
-    ...cardShadow,
   },
   menuItem: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
   },
   menuItemPressed: {
-    backgroundColor: UI.bgCream,
+    backgroundColor: 'transparent',
   },
   menuLogoutText: {
-    fontSize: 16,
+    fontSize: 15,
     color: UI.danger,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

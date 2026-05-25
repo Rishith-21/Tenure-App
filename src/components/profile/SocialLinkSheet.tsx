@@ -1,14 +1,13 @@
 import React, {useEffect, useState} from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
   Pressable,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import BottomSheetModal from '../ui/BottomSheetModal';
 import {SocialPlatform} from '../../constants/profileOptions';
 import {isValidSocialUrl, normalizeSocialUrl} from '../../utils/socialLinks';
 import {UI, uiLayout, uiStyles} from '../../theme/ui';
@@ -45,65 +44,53 @@ const SocialLinkSheet = ({visible, platform, onClose, onConfirm}: Props) => {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.overlay} onPress={onClose}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            <View style={uiStyles.sheetHandle} />
-            <Text style={styles.title}>
-              {platform.icon} {platform.label} profile
-            </Text>
-            <Text style={styles.subtitle}>
-              Paste your public profile link or username
-            </Text>
+    <BottomSheetModal visible={visible} onClose={onClose}>
+      <Pressable style={styles.sheet} onPress={() => {}}>
+        <View style={uiStyles.sheetHandle} />
+        <Text style={styles.title}>
+          {platform.icon} {platform.label} profile
+        </Text>
+        <Text style={styles.subtitle}>
+          Paste your public profile link or username
+        </Text>
 
-            <TextInput
-              value={url}
-              onChangeText={text => {
-                setUrl(text);
-                setError('');
-              }}
-              placeholder={platform.placeholder}
-              placeholderTextColor={UI.textHint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-              style={styles.input}
-              autoFocus={visible}
-            />
+        <TextInput
+          value={url}
+          onChangeText={text => {
+            setUrl(text);
+            setError('');
+          }}
+          placeholder={platform.placeholder}
+          placeholderTextColor={UI.textHint}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          style={styles.input}
+          autoFocus={visible}
+        />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <Pressable
-              style={({pressed}) => [
-                styles.primaryBtn,
-                pressed && styles.primaryBtnPressed,
-              ]}
-              onPress={handleSubmit}>
-              <Text style={styles.primaryBtnText}>Add link</Text>
-            </Pressable>
-
-            <Pressable onPress={onClose} style={styles.cancelBtn}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
-          </Pressable>
+        <Pressable
+          style={({pressed}) => [
+            styles.primaryBtn,
+            pressed && styles.primaryBtnPressed,
+          ]}
+          onPress={handleSubmit}>
+          <Text style={styles.primaryBtnText}>Add link</Text>
         </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+
+        <Pressable onPress={onClose} style={styles.cancelBtn}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </Pressable>
+      </Pressable>
+    </BottomSheetModal>
   );
 };
 
 export default SocialLinkSheet;
 
 const styles = StyleSheet.create({
-  flex: {flex: 1},
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: UI.overlay,
-  },
   sheet: {
     ...uiLayout.sheet,
     paddingHorizontal: 24,
@@ -136,7 +123,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   primaryBtn: {
-    backgroundColor: UI.brand,
+    backgroundColor: UI.primary,
     borderRadius: 22,
     paddingVertical: 16,
     alignItems: 'center',

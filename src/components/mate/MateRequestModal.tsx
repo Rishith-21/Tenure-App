@@ -1,16 +1,7 @@
 import React, {useEffect, useState} from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import {View, Text, StyleSheet, Pressable, ScrollView, TextInput} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import BottomSheetModal from '../ui/BottomSheetModal';
 import {Dropdown} from 'react-native-element-dropdown';
 import {MATE_CATEGORIES} from '../../constants/mateCategories';
 import DateTimePickerField from '../ui/DateTimePickerField';
@@ -118,22 +109,9 @@ const MateRequestModal = ({
     toDate.getTime() > fromDate.getTime();
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.overlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={onClose}
-            accessibilityLabel="Dismiss mate request"
-          />
-          <View
-            style={[styles.sheet, {paddingBottom: insets.bottom + 16}]}>
+    <>
+      <BottomSheetModal visible={visible} onClose={onClose}>
+        <View style={[styles.sheet, {paddingBottom: insets.bottom + 16}]}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderSpacer} />
               <Pressable
@@ -263,9 +241,8 @@ const MateRequestModal = ({
                 <Text style={styles.sendText}>Send</Text>
               </Pressable>
             </ScrollView>
-          </View>
         </View>
-      </KeyboardAvoidingView>
+      </BottomSheetModal>
       <LocationPickerSheet
         visible={locationPickerOpen}
         initialValue={profileLocation}
@@ -275,21 +252,13 @@ const MateRequestModal = ({
           setMeetLocation(address);
         }}
       />
-    </Modal>
+    </>
   );
 };
 
 export default MateRequestModal;
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: UI.overlay,
-    justifyContent: 'flex-end',
-  },
   sheet: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,

@@ -26,6 +26,7 @@ import {
   extractMeetDateLabel,
   formatElapsedHMS,
   formatMeetRange,
+  meetSectionLabel,
 } from '../utils/meetTime';
 import {MateRequest} from '../types/mateRequest';
 
@@ -69,9 +70,17 @@ const HomeScreen = ({navigation}: any) => {
   const pendingSent = sent.filter(r => r.status === 'pending');
   const confirmedSent = sent.filter(r => r.status === 'confirmed');
   const pendingReceived = received.filter(r => r.status === 'pending');
+  const confirmedReceived = received.filter(r => r.status === 'confirmed');
+
+  const incomingRequestLine = (req: MateRequest) =>
+    req.requesterPronoun === 'he' ? 'he requested :' : 'she requested :';
 
   const meetCount = useMemo(() => {
-    let n = pendingSent.length + pendingReceived.length + confirmedSent.length;
+    let n =
+      pendingSent.length +
+      pendingReceived.length +
+      confirmedSent.length +
+      confirmedReceived.length;
     if (activeSession) {
       n += 1;
     }
@@ -81,6 +90,7 @@ const HomeScreen = ({navigation}: any) => {
     pendingSent.length,
     pendingReceived.length,
     confirmedSent.length,
+    confirmedReceived.length,
   ]);
 
   const stackNav = () => navigation.getParent();
@@ -110,10 +120,61 @@ const HomeScreen = ({navigation}: any) => {
     stackNav()?.navigate('ReceivedRequestDetail', {requestId});
   };
 
-  const renderSentCard = (req: MateRequest, confirmed: boolean) => (
+  const openConfirmedChat = (req: MateRequest) => {
+    stackNav()?.navigate('Conversation', {
+      chatFlow:
+        req.direction === 'received' ? 'incoming_request' : 'outgoing_request',
+      mateName: req.mateName,
+      mateTenureId: req.mateTenureId,
+      mateAvatar: req.mateAvatar,
+      sessionLabel: formatMeetRange(req.fromDateTime, req.toDateTime),
+      meetDetails: req.categoryLabel,
+      requestSentAt: req.sentAt,
+    });
+  };
+
+  const renderDateHeader = (fromDateTime: string) => (
+    <Text style={styles.cardDateLabel}>{meetSectionLabel(fromDateTime)}</Text>
+  );
+
+  /** White — pending (yet to confirm / waiting) */
+  const renderPendingCard = (
+    req: MateRequest,
+    actionLine: string,
+    onPress: () => void,
+  ) => {
+    const statusLabel =
+      req.direction === 'sent' ? 'waiting' : 'yet to confirm';
+    return (
     <Pressable
       key={req.id}
-      onPress={() => openSentDetail(req.id)}
+      onPress={onPress}
+      style={({pressed}) => [
+        styles.pendingCard,
+        pressed && styles.cardPressed,
+      ]}>
+      <Image source={{uri: req.mateAvatar}} style={styles.profileImage} />
+      <View style={styles.cardMiddleSection}>
+        <Text style={styles.requestName}>{req.mateName}</Text>
+        <Text style={styles.requestId}>Tenure id : {req.mateTenureId}</Text>
+      </View>
+      <View style={styles.cardRightSection}>
+        <Text style={styles.requestActionText}>{actionLine}</Text>
+        <Text style={styles.blueText}>{req.categoryLabel}</Text>
+        <Text style={styles.meetDate}>
+          meet date {extractMeetDateLabel(req.fromDateTime)}
+        </Text>
+        <Text style={styles.pendingText}>{statusLabel}</Text>
+      </View>
+    </Pressable>
+    );
+  };
+
+  /** Pink — you requested, confirmed */
+  const renderConfirmedSentCard = (req: MateRequest) => (
+    <Pressable
+      key={req.id}
+      onPress={() => openConfirmedChat(req)}
       style={({pressed}) => [
         styles.outgoingCard,
         pressed && styles.cardPressed,
@@ -129,17 +190,16 @@ const HomeScreen = ({navigation}: any) => {
         <Text style={styles.meetDate}>
           meet date {extractMeetDateLabel(req.fromDateTime)}
         </Text>
-        <Text style={confirmed ? styles.confirmedText : styles.pendingText}>
-          {confirmed ? 'confirmed' : 'waiting'}
-        </Text>
+        <Text style={styles.confirmedText}>confirmed</Text>
       </View>
     </Pressable>
   );
 
-  const renderIncomingCard = (req: MateRequest) => (
+  /** Cream — she/he requested, confirmed */
+  const renderConfirmedReceivedCard = (req: MateRequest) => (
     <Pressable
       key={req.id}
-      onPress={() => openReceivedDetail(req.id)}
+      onPress={() => openConfirmedChat(req)}
       style={({pressed}) => [
         styles.incomingCard,
         pressed && styles.cardPressed,
@@ -150,12 +210,14 @@ const HomeScreen = ({navigation}: any) => {
         <Text style={styles.requestId}>Tenure id : {req.mateTenureId}</Text>
       </View>
       <View style={styles.cardRightSection}>
-        <Text style={styles.requestActionText}>requested you :</Text>
+        <Text style={styles.requestActionText}>
+          {incomingRequestLine(req)}
+        </Text>
         <Text style={styles.blueText}>{req.categoryLabel}</Text>
         <Text style={styles.meetDate}>
           meet date {extractMeetDateLabel(req.fromDateTime)}
         </Text>
-        <Text style={styles.pendingText}>yet to confirm</Text>
+        <Text style={styles.confirmedText}>confirmed</Text>
       </View>
     </Pressable>
   );
@@ -311,8 +373,6 @@ const HomeScreen = ({navigation}: any) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.drawerScroll}>
 
-            <Text style={styles.sectionLabel}>Today</Text>
-
             {activeSession ? (
               <Pressable
                 onPress={openActiveConversation}
@@ -352,30 +412,35 @@ const HomeScreen = ({navigation}: any) => {
               </Pressable>
             ) : null}
 
-            {pendingSent.map(req => (
+            {confirmedSent.map(req => (
               <React.Fragment key={req.id}>
-                <Text style={styles.cardDateLabel}>
-                  {extractMeetDateLabel(req.fromDateTime)}
-                </Text>
-                {renderSentCard(req, false)}
+                {renderDateHeader(req.fromDateTime)}
+                {renderConfirmedSentCard(req)}
               </React.Fragment>
             ))}
 
-            {confirmedSent.map(req => (
+            {confirmedReceived.map(req => (
               <React.Fragment key={req.id}>
-                <Text style={styles.cardDateLabel}>
-                  {extractMeetDateLabel(req.fromDateTime)}
-                </Text>
-                {renderSentCard(req, true)}
+                {renderDateHeader(req.fromDateTime)}
+                {renderConfirmedReceivedCard(req)}
+              </React.Fragment>
+            ))}
+
+            {pendingSent.map(req => (
+              <React.Fragment key={req.id}>
+                {renderDateHeader(req.fromDateTime)}
+                {renderPendingCard(req, 'you requested :', () =>
+                  openSentDetail(req.id),
+                )}
               </React.Fragment>
             ))}
 
             {pendingReceived.map(req => (
               <React.Fragment key={req.id}>
-                <Text style={styles.cardDateLabel}>
-                  {extractMeetDateLabel(req.fromDateTime)}
-                </Text>
-                {renderIncomingCard(req)}
+                {renderDateHeader(req.fromDateTime)}
+                {renderPendingCard(req, incomingRequestLine(req), () =>
+                  openReceivedDetail(req.id),
+                )}
               </React.Fragment>
             ))}
 
@@ -730,7 +795,12 @@ activeDateText: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DADADA',
+    borderColor: '#E8E0D6',
+    shadowColor: '#003B57',
+    shadowOffset: {width: 0, height: 3},
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
 
   cardMiddleSection: {

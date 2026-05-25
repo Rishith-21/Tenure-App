@@ -1,15 +1,14 @@
 import React, {useEffect, useState} from 'react';
 import {
-  Modal,
   View,
   Text,
   StyleSheet,
   Pressable,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import BottomSheetModal from '../ui/BottomSheetModal';
 import {UI, uiLayout, uiStyles} from '../../theme/ui';
 
 type Props = {
@@ -64,12 +63,8 @@ const EditPhoneSheet = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.overlay} onPress={onClose}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+    <BottomSheetModal visible={visible} onClose={onClose}>
+      <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={uiStyles.sheetHandle} />
 
             <Text style={styles.title}>Change WhatsApp number</Text>
@@ -138,24 +133,14 @@ const EditPhoneSheet = ({
               disabled={submitting}>
               <Text style={styles.cancelBtnText}>Cancel</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+      </Pressable>
+    </BottomSheetModal>
   );
 };
 
 export default EditPhoneSheet;
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: UI.overlay,
-  },
   sheet: {
     ...uiLayout.sheet,
     paddingHorizontal: 24,
@@ -194,7 +179,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   phoneRowFocused: {
-    borderColor: UI.brand,
+    borderColor: UI.primary,
     borderWidth: 2,
   },
   phoneRowError: {
@@ -209,7 +194,7 @@ const styles = StyleSheet.create({
   countryText: {
     fontSize: 16,
     fontWeight: '700',
-    color: UI.brand,
+    color: UI.text,
   },
   input: {
     flex: 1,
@@ -226,12 +211,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   primaryBtn: {
-    backgroundColor: UI.brand,
+    backgroundColor: UI.primary,
     borderRadius: 22,
     paddingVertical: 17,
     alignItems: 'center',
     marginTop: 10,
-    shadowColor: UI.brand,
+    shadowColor: '#000',
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.2,
     shadowRadius: 8,
