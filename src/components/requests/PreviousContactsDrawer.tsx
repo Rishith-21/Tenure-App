@@ -11,6 +11,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {MateRequest} from '../../types/mateRequest';
 import RequestListCard from './RequestListCard';
+import {useTheme} from '../../context/ThemeContext';
 
 const {height: SCREEN_HEIGHT} = Dimensions.get('window');
 
@@ -19,9 +20,12 @@ const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.52;
 
 type Props = {
   contacts: MateRequest[];
+  title?: string;
 };
 
-const PreviousContactsDrawer = ({contacts}: Props) => {
+const PreviousContactsDrawer = ({contacts, title = 'Past contacts'}: Props) => {
+  const {colors} = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const animatedHeight = useRef(
     new Animated.Value(COLLAPSED_HEIGHT),
@@ -74,7 +78,8 @@ const PreviousContactsDrawer = ({contacts}: Props) => {
       ]}>
       <View {...panResponder.panHandlers} style={styles.dragZone}>
         <View style={styles.handle} />
-        <Text style={styles.title}>previous people's messages</Text>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.subTitle}>{contacts.length} previous connections</Text>
       </View>
 
       <ScrollView
@@ -85,6 +90,7 @@ const PreviousContactsDrawer = ({contacts}: Props) => {
           <RequestListCard
             key={contact.id}
             request={contact}
+            statusText="Past"
             subtitle={
               contact.expiresInDays
                 ? `Expired in ${contact.expiresInDays} days`
@@ -106,44 +112,51 @@ function formatMeetSummary(contact: MateRequest): string {
 
 export default PreviousContactsDrawer;
 
-const styles = StyleSheet.create({
-  drawer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: -4},
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 16,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-  },
-  dragZone: {
-    paddingTop: 10,
-    paddingBottom: 8,
-    paddingHorizontal: 20,
-  },
-  handle: {
-    width: 48,
-    height: 5,
-    backgroundColor: '#D2D2D2',
-    borderRadius: 3,
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 13,
-    color: '#333333',
-    textTransform: 'lowercase',
-    marginBottom: 4,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    drawer: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: c.bg,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      shadowColor: c.shadow,
+      shadowOffset: {width: 0, height: -4},
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 14,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderRightWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+    },
+    dragZone: {
+      paddingTop: 10,
+      paddingBottom: 10,
+      paddingHorizontal: 20,
+    },
+    handle: {
+      width: 46,
+      height: 4,
+      backgroundColor: c.borderPill,
+      borderRadius: 3,
+      alignSelf: 'center',
+      marginBottom: 10,
+    },
+    title: {
+      fontSize: 14,
+      color: c.text,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    subTitle: {
+      fontSize: 11,
+      color: c.textHint,
+    },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+    },
+  });

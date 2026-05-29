@@ -1,65 +1,69 @@
-import React, {useEffect, useRef} from 'react';
-import {
-  View,
-  Image,
-  Text,
-  StyleSheet,
-  StatusBar,
-  Animated,
-  Easing,
-} from 'react-native';
-import {UI} from '../theme/ui';
+import React, {useEffect, useMemo, useRef} from 'react';
+import {View, Text, StyleSheet, Animated, Easing} from 'react-native';
+import {useTheme} from '../context/ThemeContext';
 import {getAuthRoute} from '../utils/authStorage';
 import {resetToRoute} from '../navigation/navigationActions';
 
-const SPLASH_LOGO = require('../../DummyLogo.png');
-
 const SplashScreen = ({navigation}: any) => {
+  const {colors} = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const fade = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.88)).current;
-  const markSlide = useRef(new Animated.Value(12)).current;
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: 700,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(scale, {
-        toValue: 1,
-        friction: 7,
-        tension: 50,
-        useNativeDriver: true,
-      }),
-      Animated.timing(markSlide, {
-        toValue: 0,
-        duration: 650,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fade, markSlide, scale]);
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: 700,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [fade]);
+
+  useEffect(() => {
+    const pulse = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot, {
+            toValue: 0.25,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+
+    const a1 = pulse(dot1, 0);
+    const a2 = pulse(dot2, 150);
+    const a3 = pulse(dot3, 300);
+    a1.start();
+    a2.start();
+    a3.start();
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
+  }, [dot1, dot2, dot3]);
 
   useEffect(() => {
     let mounted = true;
-
     const boot = async () => {
+      await new Promise<void>(r => setTimeout(r, 2200));
+      if (!mounted) return;
       try {
-        await new Promise<void>(r => setTimeout(r, 1600));
-        if (!mounted) {
-          return;
-        }
         const route = await getAuthRoute();
         resetToRoute(navigation, route);
       } catch {
-        if (mounted) {
-          resetToRoute(navigation, 'Login');
-        }
+        resetToRoute(navigation, 'Login');
       }
     };
-
     boot();
     return () => {
       mounted = false;
@@ -67,83 +71,72 @@ const SplashScreen = ({navigation}: any) => {
   }, [navigation]);
 
   return (
-    <>
-      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
-      <View style={styles.container}>
-        <View style={styles.blobTop} />
-        <View style={styles.blobBottom} />
+    <View style={styles.container}>
+      <Animated.View style={[styles.center, {opacity: fade}]}>
+        <Text style={styles.infinity} accessibilityLabel="Tenure logo">
+          ∞
+        </Text>
+        <Text style={styles.wordmark}>Tenure</Text>
+        <Text style={styles.tagline}>ESTABLISHED TRUST</Text>
 
-        <Animated.View
-          style={[
-            styles.brandBlock,
-            {
-              opacity: fade,
-              transform: [{scale}, {translateY: markSlide}],
-            },
-          ]}>
-          <Text style={styles.wordmark}>Tenure</Text>
-          <View style={styles.logoFrame}>
-            <Image
-              source={SPLASH_LOGO}
-              style={styles.logo}
-              resizeMode="contain"
-              accessibilityLabel="Tenure logo"
+        <View style={styles.dots}>
+          {[dot1, dot2, dot3].map((dot, i) => (
+            <Animated.View
+              key={i}
+              style={[styles.dot, {opacity: dot}]}
             />
-          </View>
-        </Animated.View>
-      </View>
-    </>
+          ))}
+        </View>
+      </Animated.View>
+    </View>
   );
 };
 
 export default SplashScreen;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: UI.bgCream,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  blobTop: {
-    position: 'absolute',
-    top: -80,
-    right: -60,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: UI.brand,
-    opacity: 0.05,
-  },
-  blobBottom: {
-    position: 'absolute',
-    bottom: -100,
-    left: -70,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: UI.brandMuted,
-    opacity: 0.06,
-  },
-  brandBlock: {
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  wordmark: {
-    fontSize: 42,
-    fontWeight: '800',
-    color: UI.brand,
-    letterSpacing: 0.5,
-    marginBottom: 28,
-  },
-  logoFrame: {
-    width: 168,
-    height: 200,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.bg,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    center: {
+      alignItems: 'center',
+      paddingHorizontal: 48,
+    },
+    infinity: {
+      fontSize: 56,
+      fontWeight: '300',
+      color: c.brandDark,
+      lineHeight: 64,
+      marginBottom: 20,
+    },
+    wordmark: {
+      fontSize: 36,
+      fontWeight: '800',
+      color: c.brandDark,
+      letterSpacing: 0.2,
+      marginBottom: 10,
+    },
+    tagline: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: c.textHint,
+      letterSpacing: 3.2,
+      textTransform: 'uppercase',
+      marginBottom: 48,
+    },
+    dots: {
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'center',
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: c.textHint,
+    },
+  });

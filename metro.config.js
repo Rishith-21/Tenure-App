@@ -12,6 +12,14 @@ const projectRoot = __dirname;
 const config = {
   projectRoot,
   watchFolders: [projectRoot],
+  resolver: {
+    // Ignore transient native build dirs that appear/disappear on Windows.
+    blockList: [
+      /.*[\\/]android[\\/]\.cxx[\\/].*/,
+      /.*[\\/]android[\\/]build[\\/].*/,
+      /.*[\\/]\.gradle[\\/].*/,
+    ],
+  },
   watcher: {
     healthCheck: {
       enabled: true,

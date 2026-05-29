@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  StatusBar,
   Pressable,
   TextInput,
   KeyboardAvoidingView,
@@ -20,6 +19,11 @@ import {
   createMessageId,
 } from '../types/chat';
 import {showPhotoPickerActions} from '../utils/chatMedia';
+import {
+  MAX_TENURE_SECONDS,
+  useActiveSessionStore,
+} from '../store/activeSessionStore';
+import {useTheme} from '../context/ThemeContext';
 
 export type ChatFlow =
   | 'active'
@@ -94,6 +98,8 @@ const seedMessages = (mateName: string): ChatMessage[] => [
 ];
 
 const ConversationScreen = ({navigation, route}: any) => {
+  const {colors} = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const params = (route.params || {}) as ConversationParams;
   const {
     chatFlow = 'active',
@@ -127,6 +133,8 @@ const ConversationScreen = ({navigation, route}: any) => {
     CHAT_ENABLED_FLOWS.includes(chatFlow) ? seedMessages(mateName) : [],
   );
   const scrollRef = useRef<ScrollView>(null);
+  const autoStoppedRef = useRef(false);
+  const startGlobalSession = useActiveSessionStore(s => s.startSession);
 
   const {
     isRecording,
@@ -138,6 +146,29 @@ const ConversationScreen = ({navigation, route}: any) => {
   } = useVoiceRecorder();
 
   const isActiveSession = sessionStarted;
+
+  const startTenureSession = useCallback(() => {
+    const [fromDateTime = sessionLabel, toDateTime = sessionLabel] =
+      sessionLabel.split(' - ');
+    setSessionStarted(true);
+    setElapsedSec(0);
+    setTimerStatus('running');
+    autoStoppedRef.current = false;
+    startGlobalSession({
+      mateName,
+      mateTenureId,
+      mateAvatar,
+      fromDateTime,
+      toDateTime,
+      startedAt: Date.now(),
+    });
+  }, [
+    mateAvatar,
+    mateName,
+    mateTenureId,
+    sessionLabel,
+    startGlobalSession,
+  ]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
@@ -216,11 +247,29 @@ const ConversationScreen = ({navigation, route}: any) => {
     }
 
     const id = setInterval(() => {
-      setElapsedSec(prev => prev + 1);
+      setElapsedSec(prev => {
+        if (prev >= MAX_TENURE_SECONDS) {
+          return prev;
+        }
+        const next = prev + 1;
+        if (next >= MAX_TENURE_SECONDS) {
+          setTimerStatus('paused');
+          if (!autoStoppedRef.current) {
+            autoStoppedRef.current = true;
+            appendMessage({
+              sender: 'system',
+              type: 'system',
+              text: 'Tenure auto-stopped after 24 hours for safety.',
+            });
+          }
+          return MAX_TENURE_SECONDS;
+        }
+        return next;
+      });
     }, 1000);
 
     return () => clearInterval(id);
-  }, [isActiveSession, timerStatus]);
+  }, [appendMessage, isActiveSession, timerStatus]);
 
   const handleStopPress = () => {
     if (timerStatus === 'running') {
@@ -276,9 +325,7 @@ const ConversationScreen = ({navigation, route}: any) => {
   };
 
   const simulateRequesterEnteredOtp = () => {
-    setSessionStarted(true);
-    setElapsedSec(0);
-    setTimerStatus('running');
+    startTenureSession();
     appendMessage({
       sender: 'system',
       type: 'system',
@@ -320,9 +367,7 @@ const ConversationScreen = ({navigation, route}: any) => {
     }
 
     setOtpError('');
-    setSessionStarted(true);
-    setElapsedSec(0);
-    setTimerStatus('running');
+    startTenureSession();
 
     if (messages.length === 0) {
       setMessages(seedMessages(mateName));
@@ -575,8 +620,6 @@ const ConversationScreen = ({navigation, route}: any) => {
 
   return (
     <>
-      <StatusBar backgroundColor="#F3EDE4" barStyle="dark-content" />
-
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -646,263 +689,270 @@ const ConversationScreen = ({navigation, route}: any) => {
 
 export default ConversationScreen;
 
-const styles = StyleSheet.create({
-  flex: {flex: 1},
-  container: {
-    flex: 1,
-    backgroundColor: '#F3EDE4',
-    paddingTop: 36,
-    paddingHorizontal: 20,
-  },
-  sessionBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E5DDD3',
-  },
-  sessionBadgeText: {
-    fontSize: 12,
-    color: '#444444',
-    fontWeight: '500',
-  },
-  pinkCard: {
-    backgroundColor: '#F2E4E1',
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 16,
-  },
-  creamCard: {
-    backgroundColor: '#F3E6CB',
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 16,
-  },
-  waitingPill: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E8E0D6',
-    marginBottom: 12,
-  },
-  waitingPillText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333333',
-  },
-  confirmIncomingButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#003B57',
-  },
-  confirmIncomingText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#003B57',
-  },
-  otpDisplayRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  otpDisplayDigit: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#111111',
-    marginHorizontal: 10,
-  },
-  otpShareHint: {
-    fontSize: 12,
-    color: '#555555',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  pinkCardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cancelPill: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#D5D5D5',
-  },
-  cancelText: {
-    fontSize: 14,
-    color: '#333333',
-    fontWeight: '600',
-  },
-  pinkCardTime: {
-    fontSize: 12,
-    color: '#666666',
-  },
-  pinkCardMeet: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#111111',
-    textAlign: 'center',
-    marginBottom: 18,
-    lineHeight: 24,
-  },
-  confirmOtpButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  confirmOtpText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  otpSentBlock: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-  },
-  otpSentTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#003B57',
-    marginBottom: 6,
-  },
-  otpSentCode: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111111',
-    letterSpacing: 4,
-    marginBottom: 8,
-  },
-  otpSentHint: {
-    fontSize: 12,
-    color: '#666666',
-    lineHeight: 18,
-  },
-  otpDisclaimer: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    color: '#555555',
-    textAlign: 'center',
-    marginBottom: 14,
-    lineHeight: 18,
-  },
-  otpRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  otpBox: {
-    width: '22%',
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111111',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  otpError: {
-    color: '#E53935',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  timerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#003B57',
-    borderRadius: 40,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: 8,
-  },
-  timerPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    marginRight: 10,
-  },
-  timerIcon: {fontSize: 16, marginRight: 8},
-  timerValue: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  stopButton: {
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-    borderRadius: 28,
-    backgroundColor: '#0A4D6E',
-  },
-  stopButtonMuted: {backgroundColor: '#5A8BA3'},
-  stopButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    textTransform: 'lowercase',
-  },
-  demoConfirmRow: {
-    backgroundColor: '#FFF8E8',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: '#F0D9A8',
-  },
-  demoConfirmText: {
-    fontSize: 12,
-    color: '#8A6B2E',
-    textAlign: 'center',
-  },
-  demoSwitchButton: {
-    marginTop: 12,
-    paddingVertical: 10,
-  },
-  demoSwitchText: {
-    fontSize: 12,
-    color: '#003B57',
-    fontWeight: '700',
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  statusHint: {
-    fontSize: 12,
-    color: '#777777',
-    marginBottom: 10,
-    marginLeft: 4,
-  },
-  chatArea: {flex: 1},
-  chatContent: {
-    flexGrow: 1,
-    paddingBottom: 12,
-  },
-  waitingBanner: {
-    textAlign: 'center',
-    color: '#888888',
-    fontSize: 13,
-    marginBottom: 12,
-    lineHeight: 20,
-    paddingHorizontal: 8,
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    flex: {flex: 1},
+    container: {
+      flex: 1,
+      backgroundColor: c.bgElevated,
+      paddingTop: 36,
+      paddingHorizontal: 16,
+    },
+    sessionBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: c.card,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    sessionBadgeText: {
+      fontSize: 11,
+      color: c.textSecondary,
+      fontWeight: '600',
+    },
+    pinkCard: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    creamCard: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      padding: 14,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    waitingPill: {
+      backgroundColor: c.bgElevated,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+      marginBottom: 10,
+    },
+    waitingPillText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.text,
+    },
+    confirmIncomingButton: {
+      backgroundColor: c.chip,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.primary,
+    },
+    confirmIncomingText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.primary,
+    },
+    otpDisplayRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    otpDisplayDigit: {
+      fontSize: 30,
+      fontWeight: '800',
+      color: c.text,
+      marginHorizontal: 8,
+    },
+    otpShareHint: {
+      fontSize: 12,
+      color: c.textSecondary,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: 8,
+    },
+    pinkCardTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    cancelPill: {
+      backgroundColor: c.bgElevated,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    cancelText: {
+      fontSize: 13,
+      color: c.textSecondary,
+      fontWeight: '600',
+    },
+    pinkCardTime: {
+      fontSize: 11,
+      color: c.textHint,
+    },
+    pinkCardMeet: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.text,
+      textAlign: 'center',
+      marginBottom: 14,
+      lineHeight: 22,
+    },
+    confirmOtpButton: {
+      backgroundColor: c.bgElevated,
+      borderRadius: 12,
+      paddingVertical: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    confirmOtpText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.text,
+    },
+    otpSentBlock: {
+      backgroundColor: c.bgElevated,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    otpSentTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: c.brand,
+      marginBottom: 6,
+    },
+    otpSentCode: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: c.text,
+      letterSpacing: 3,
+      marginBottom: 8,
+    },
+    otpSentHint: {
+      fontSize: 12,
+      color: c.textSecondary,
+      lineHeight: 18,
+    },
+    otpDisclaimer: {
+      fontSize: 12,
+      fontStyle: 'italic',
+      color: c.textSecondary,
+      textAlign: 'center',
+      marginBottom: 12,
+      lineHeight: 18,
+    },
+    otpRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    otpBox: {
+      width: '22%',
+      height: 52,
+      backgroundColor: c.bgElevated,
+      borderRadius: 10,
+      textAlign: 'center',
+      fontSize: 20,
+      fontWeight: '700',
+      color: c.text,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    otpError: {
+      color: c.danger,
+      fontSize: 12,
+      textAlign: 'center',
+      marginTop: 6,
+    },
+    timerBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.primary,
+      borderRadius: 14,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      marginBottom: 8,
+    },
+    timerPill: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.card,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      marginRight: 8,
+    },
+    timerIcon: {fontSize: 15, marginRight: 8},
+    timerValue: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: c.text,
+    },
+    stopButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 11,
+      borderRadius: 10,
+      backgroundColor: c.brandDark,
+    },
+    stopButtonMuted: {backgroundColor: c.textHint},
+    stopButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+      textTransform: 'lowercase',
+    },
+    demoConfirmRow: {
+      backgroundColor: c.chip,
+      borderRadius: 10,
+      padding: 10,
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    demoConfirmText: {
+      fontSize: 12,
+      color: c.textSecondary,
+      textAlign: 'center',
+    },
+    demoSwitchButton: {
+      marginTop: 10,
+      paddingVertical: 8,
+    },
+    demoSwitchText: {
+      fontSize: 12,
+      color: c.brand,
+      fontWeight: '700',
+      textAlign: 'center',
+      textDecorationLine: 'underline',
+    },
+    statusHint: {
+      fontSize: 12,
+      color: c.textHint,
+      marginBottom: 10,
+      marginLeft: 4,
+    },
+    chatArea: {flex: 1},
+    chatContent: {
+      flexGrow: 1,
+      paddingBottom: 10,
+    },
+    waitingBanner: {
+      textAlign: 'center',
+      color: c.textHint,
+      fontSize: 12,
+      marginBottom: 12,
+      lineHeight: 18,
+      paddingHorizontal: 8,
+    },
+  });

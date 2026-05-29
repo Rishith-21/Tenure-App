@@ -1,98 +1,91 @@
 import React from 'react';
-import {View, Text, StyleSheet} from 'react-native';
+import {View, StyleSheet, Pressable} from 'react-native';
 import {UI} from '../../theme/ui';
 
-/** Static map-style block until map SDK + backend are integrated. */
-const HomeMapPlaceholder = () => (
-  <View style={styles.container}>
-    <View style={styles.grid}>
-      {Array.from({length: 6}).map((_, row) => (
-        <View key={`r-${row}`} style={styles.row}>
-          {Array.from({length: 4}).map((__, col) => (
-            <View key={`c-${row}-${col}`} style={styles.cell} />
-          ))}
+type Props = {
+  /** Tap empty map — peek meet dates panel on Home */
+  onBackdropPress?: () => void;
+};
+
+/** Light map stand-in until tiles / SDK are wired */
+const HomeMapPlaceholder = ({onBackdropPress}: Props) => (
+  <Pressable
+    style={styles.pressable}
+    onPress={onBackdropPress}
+    accessibilityRole="image"
+    accessibilityLabel="Map">
+    <View style={styles.container} pointerEvents="box-none">
+      <View style={styles.roadH} />
+      <View style={styles.roadV} />
+      <View style={styles.roadH2} />
+      <View style={styles.pinWrap} pointerEvents="none">
+        <View style={styles.pinRing}>
+          <View style={styles.pinCore} />
         </View>
-      ))}
-    </View>
-    <View style={styles.roadH} />
-    <View style={styles.roadV} />
-    <View style={styles.pinWrap}>
-      <View style={styles.pinCard}>
-        <Text style={styles.pin}>📍</Text>
-        <Text style={styles.pinLabel}>L. B. NAGAR LB</Text>
       </View>
     </View>
-  </View>
+  </Pressable>
 );
 
 export default HomeMapPlaceholder;
 
 const styles = StyleSheet.create({
+  pressable: {flex: 1},
   container: {
     flex: 1,
-    backgroundColor: '#D8D8D8',
+    backgroundColor: '#E6ECEF',
     overflow: 'hidden',
-  },
-  grid: {
-    flex: 1,
-    padding: 10,
-  },
-  row: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  cell: {
-    flex: 1,
-    margin: 3,
-    backgroundColor: '#EEEBE4',
-    borderRadius: 6,
   },
   roadH: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: '48%',
-    height: 12,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.9,
+    top: '44%',
+    height: 10,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  roadH2: {
+    position: 'absolute',
+    left: '12%',
+    right: '18%',
+    top: '62%',
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderRadius: 3,
   },
   roadV: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    left: '42%',
-    width: 10,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.9,
+    left: '38%',
+    width: 8,
+    backgroundColor: 'rgba(255,255,255,0.8)',
   },
   pinWrap: {
     position: 'absolute',
-    top: '38%',
-    left: '34%',
+    left: 0,
+    right: 0,
+    top: '46%',
     alignItems: 'center',
   },
-  pinCard: {
-    flexDirection: 'row',
+  pinRing: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
-    backgroundColor: UI.card,
-    borderRadius: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: UI.border,
-    shadowColor: '#003B57',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 4,
+    justifyContent: 'center',
+    shadowColor: '#012E41',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  pin: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  pinLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: UI.textSecondary,
+  pinCore: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: UI.brand,
   },
 });

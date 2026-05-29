@@ -1,14 +1,19 @@
 import React from 'react';
 import {View, StyleSheet, StatusBar} from 'react-native';
 import SearchPanel from '../components/search/SearchPanel';
-import {UI} from '../theme/ui';
+import {useTheme} from '../context/ThemeContext';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 /** Standalone search route (e.g. deep links). Home uses HomeSearchOverlay instead. */
 const SearchScreen = ({navigation}: any) => {
+  const {colors} = useTheme();
+  const insets = useSafeAreaInsets();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+
   return (
     <>
-      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
-      <View style={styles.container}>
+      <StatusBar backgroundColor={colors.bgElevated} barStyle={colors.statusBar} />
+      <View style={[styles.container, {paddingTop: insets.top + 8}]}>
         <SearchPanel
           onClose={() => navigation.goBack()}
           stackNavigation={navigation}
@@ -21,11 +26,11 @@ const SearchScreen = ({navigation}: any) => {
 
 export default SearchScreen;
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: UI.bgCream,
-    paddingTop: 48,
-    paddingHorizontal: 18,
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.bgElevated,
+      paddingHorizontal: 16,
+    },
+  });

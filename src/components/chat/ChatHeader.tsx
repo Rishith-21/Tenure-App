@@ -8,6 +8,7 @@ import {
   Modal,
 } from 'react-native';
 import {useAppDialog} from '../../context/DialogContext';
+import {useTheme} from '../../context/ThemeContext';
 import BackButton from '../navigation/BackButton';
 
 type Props = {
@@ -23,6 +24,8 @@ const ChatHeader = ({
   mateAvatar,
   onBack,
 }: Props) => {
+  const {colors} = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const [menuVisible, setMenuVisible] = useState(false);
   const {showAlert, showConfirm} = useAppDialog();
 
@@ -104,84 +107,90 @@ const ChatHeader = ({
 
 export default ChatHeader;
 
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  backButtonSlot: {marginRight: 8},
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 10,
-  },
-  headerTextBlock: {flex: 1},
-  mateName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#003B57',
-  },
-  mateId: {
-    fontSize: 12,
-    color: '#666666',
-    marginTop: 2,
-  },
-  callButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E8E0D6',
-    marginRight: 8,
-  },
-  callIcon: {fontSize: 18},
-  menuButton: {
-    width: 36,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuIcon: {
-    fontSize: 22,
-    color: '#333333',
-    fontWeight: '700',
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 100,
-    paddingRight: 20,
-  },
-  menuDropdown: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    minWidth: 160,
-    paddingVertical: 6,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-  },
-  menuItem: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  menuItemTextDanger: {
-    fontSize: 16,
-    color: '#D32F2F',
-    fontWeight: '600',
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: '#EEEEEE',
-    marginHorizontal: 12,
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    backButtonSlot: {marginRight: 8},
+    avatar: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      marginRight: 10,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    headerTextBlock: {flex: 1},
+    mateName: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: c.brandDark,
+    },
+    mateId: {
+      fontSize: 12,
+      color: c.textHint,
+      marginTop: 2,
+    },
+    callButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: c.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+      marginRight: 6,
+    },
+    callIcon: {fontSize: 17},
+    menuButton: {
+      width: 34,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 10,
+    },
+    menuIcon: {
+      fontSize: 20,
+      color: c.textSecondary,
+      fontWeight: '700',
+    },
+    menuOverlay: {
+      flex: 1,
+      backgroundColor: c.sheetScrim,
+      justifyContent: 'flex-start',
+      alignItems: 'flex-end',
+      paddingTop: 96,
+      paddingRight: 20,
+    },
+    menuDropdown: {
+      backgroundColor: c.card,
+      borderRadius: 12,
+      minWidth: 156,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: c.border,
+      elevation: 6,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 4},
+      shadowOpacity: 0.12,
+      shadowRadius: 10,
+    },
+    menuItem: {
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+    },
+    menuItemTextDanger: {
+      fontSize: 15,
+      color: c.danger,
+      fontWeight: '600',
+    },
+    menuDivider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginHorizontal: 12,
+    },
+  });

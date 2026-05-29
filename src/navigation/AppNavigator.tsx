@@ -5,14 +5,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../screens/SplashScreen';
 import LoginScreen from '../screens/LoginScreen';
 import OtpScreen from '../screens/OtpScreen';
-import ProfileRegScreen from '../screens/ProfileRegScreen';
+import ProfileSetupScreen from '../screens/ProfileSetupScreen';
 import LocationLanguageScreen from '../screens/LocationLanguageScreen';
 import CategoryPreferenceScreen from '../screens/CategoryPreferenceScreen';
 import MainTabNavigator from './MainTabNavigator';
 import ReceivedRequestDetailScreen from '../screens/ReceivedRequestDetailScreen';
 import SentRequestDetailScreen from '../screens/SentRequestDetailScreen';
 import ConversationScreen from '../screens/ConversationScreen';
-import UserProfileScreen from '../screens/UserProfileScreen';
+import UserProfileScreen from '../screens/UserProfileScreenClean';
 import ProfileUpdateMoreScreen from '../screens/ProfileUpdateMoreScreen';
 import SearchScreen from '../screens/SearchScreen';
 import MateProfileScreen from '../screens/MateProfileScreen';
@@ -44,7 +44,7 @@ const AppNavigator = () => {
         />
         <Stack.Screen
             name="ProfileCreation"
-            component={ProfileRegScreen}
+            component={ProfileSetupScreen}
         />
         <Stack.Screen
           name="LocationLanguage"
@@ -86,8 +86,10 @@ const AppNavigator = () => {
           name="Search"
           component={SearchScreen}
           options={{
-            animation: 'fade',
-            animationDuration: 200,
+            animation: 'slide_from_bottom',
+            animationDuration: 260,
+            presentation: 'card',
+            gestureEnabled: true,
           }}
         />
         <Stack.Screen

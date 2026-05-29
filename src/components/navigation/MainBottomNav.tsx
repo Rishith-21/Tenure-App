@@ -1,22 +1,27 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {View, Text, StyleSheet, Pressable} from 'react-native';
 import {BottomTabBarProps} from '@react-navigation/bottom-tabs';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useTheme} from '../../context/ThemeContext';
 
 const TAB_LABELS: Record<string, string> = {
   Home: 'Home',
   Requests: 'Requests',
   Alerts: 'Alerts',
+  Profile: 'Profile',
 };
 
 const TAB_ICONS: Record<string, string> = {
   Home: '⌂',
-  Requests: '👥',
-  Alerts: '🔔',
+  Requests: '◎',
+  Alerts: '◉',
+  Profile: '◌',
 };
 
 const MainBottomNav = ({state, navigation}: BottomTabBarProps) => {
   const insets = useSafeAreaInsets();
+  const {colors} = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={[styles.bar, {paddingBottom: Math.max(insets.bottom, 10)}]}>
@@ -29,15 +34,28 @@ const MainBottomNav = ({state, navigation}: BottomTabBarProps) => {
             key={route.key}
             style={styles.tab}
             onPress={() => {
-              if (!focused) {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!focused && !event.defaultPrevented) {
                 navigation.navigate(route.name);
               }
             }}
+            onLongPress={() =>
+              navigation.emit({
+                type: 'tabLongPress',
+                target: route.key,
+              })
+            }
             accessibilityRole="button"
             accessibilityState={{selected: focused}}>
-            <Text style={[styles.icon, focused && styles.iconActive]}>
-              {TAB_ICONS[route.name] ?? '•'}
-            </Text>
+            <View style={[styles.iconDot, focused && styles.iconDotActive]}>
+              <Text style={[styles.icon, focused && styles.iconActive]}>
+                {TAB_ICONS[route.name] ?? '•'}
+              </Text>
+            </View>
             <Text style={[styles.label, focused && styles.labelActive]}>
               {label}
             </Text>
@@ -50,35 +68,56 @@ const MainBottomNav = ({state, navigation}: BottomTabBarProps) => {
 
 export default MainBottomNav;
 
-const styles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingTop: 10,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-  },
-  icon: {
-    fontSize: 22,
-    color: '#999999',
-    marginBottom: 4,
-  },
-  iconActive: {
-    color: '#003B57',
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888888',
-  },
-  labelActive: {
-    color: '#003B57',
-    fontWeight: '800',
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    bar: {
+      flexDirection: 'row',
+      backgroundColor: c.card,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+      paddingTop: 8,
+      paddingHorizontal: 14,
+      shadowColor: c.shadow,
+      shadowOffset: {width: 0, height: -4},
+      shadowOpacity: 0.06,
+      shadowRadius: 14,
+      elevation: 8,
+    },
+    tab: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 4,
+    },
+    iconDot: {
+      minWidth: 44,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+      marginBottom: 3,
+    },
+    iconDotActive: {
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    icon: {
+      fontSize: 18,
+      color: c.textHint,
+    },
+    iconActive: {
+      color: c.brand,
+      fontWeight: '700',
+    },
+    label: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: c.textHint,
+    },
+    labelActive: {
+      color: c.brand,
+      fontWeight: '800',
+    },
+  });

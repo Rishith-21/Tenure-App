@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useMemo} from 'react';
 import {
   Modal,
   View,
@@ -8,7 +8,7 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
-import {UI} from '../../theme/ui';
+import {useTheme} from '../../context/ThemeContext';
 
 export type MenuAnchor = {
   x: number;
@@ -27,7 +27,7 @@ type Props = {
   onTrustyAlert: () => void;
 };
 
-const MENU_WIDTH = 188;
+const MENU_WIDTH = 200;
 const SCREEN_W = Dimensions.get('window').width;
 const SCREEN_H = Dimensions.get('window').height;
 const EDGE = 12;
@@ -41,17 +41,21 @@ const HomeUpdateModal = ({
   onPrivacyPolicy,
   onTrustyAlert,
 }: Props) => {
+  const {colors} = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (!anchor) {
     return null;
   }
 
-  const menuTop = anchor.y + anchor.height + 6;
+  const menuTop = anchor.y + anchor.height + 8;
   let menuLeft = anchor.x + anchor.width - MENU_WIDTH;
   menuLeft = Math.max(EDGE, Math.min(menuLeft, SCREEN_W - MENU_WIDTH - EDGE));
 
-  const menuBottom = menuTop + 168;
+  const menuHeight = 168;
+  const menuBottom = menuTop + menuHeight;
   const flipAbove = menuBottom > SCREEN_H - EDGE;
-  const top = flipAbove ? anchor.y - 6 - 168 : menuTop;
+  const top = flipAbove ? anchor.y - 8 - menuHeight : menuTop;
 
   return (
     <Modal
@@ -61,19 +65,10 @@ const HomeUpdateModal = ({
       onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View
-          style={[
-            styles.menu,
-            {
-              top,
-              left: menuLeft,
-              width: MENU_WIDTH,
-            },
-          ]}>
+        <View style={[styles.menu, {top, left: menuLeft, width: MENU_WIDTH}]}>
           <Pressable
             style={({pressed}) => [
               styles.menuRow,
-              styles.menuRowFirst,
               pressed && styles.menuRowPressed,
             ]}
             onPress={onOpenProfile}>
@@ -89,18 +84,15 @@ const HomeUpdateModal = ({
               pressed && styles.menuRowPressed,
             ]}
             onPress={onPrivacyPolicy}>
-            <View style={styles.menuBullet} />
             <Text style={styles.menuRowText}>Privacy</Text>
           </Pressable>
 
           <Pressable
             style={({pressed}) => [
               styles.menuRow,
-              styles.menuRowLast,
               pressed && styles.menuRowPressed,
             ]}
             onPress={onTrustyAlert}>
-            <View style={[styles.menuBullet, styles.menuBulletAccent]} />
             <Text style={styles.menuRowText}>Trusty alert</Text>
           </Pressable>
         </View>
@@ -111,68 +103,47 @@ const HomeUpdateModal = ({
 
 export default HomeUpdateModal;
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.28)',
-  },
-  menu: {
-    position: 'absolute',
-    backgroundColor: UI.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: UI.borderInput,
-    paddingVertical: 4,
-    shadowColor: '#003B57',
-    shadowOffset: {width: 0, height: 6},
-    shadowOpacity: 0.14,
-    shadowRadius: 16,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  menuRowFirst: {
-    paddingTop: 8,
-  },
-  menuRowLast: {
-    paddingBottom: 8,
-  },
-  menuRowPressed: {
-    backgroundColor: '#F0F7FA',
-  },
-  menuAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: UI.borderInput,
-  },
-  menuRowText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: UI.text,
-  },
-  menuBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: UI.textHint,
-    marginLeft: 11,
-    marginRight: 3,
-  },
-  menuBulletAccent: {
-    backgroundColor: UI.brandMuted,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: UI.border,
-    marginHorizontal: 10,
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: c.sheetScrim,
+    },
+    menu: {
+      position: 'absolute',
+      backgroundColor: c.bg,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingVertical: 6,
+      overflow: 'hidden',
+    },
+    menuRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      gap: 10,
+    },
+    menuRowPressed: {
+      backgroundColor: c.chip,
+    },
+    menuAvatar: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    menuRowText: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.text,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginHorizontal: 12,
+    },
+  });

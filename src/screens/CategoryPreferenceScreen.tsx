@@ -1,59 +1,57 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
   TextInput,
-  StatusBar,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
-import {Dropdown} from 'react-native-element-dropdown';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {setOnboardingComplete} from '../utils/authStorage';
-import BackButton from '../components/navigation/BackButton';
-import {goBackSafe, resetToMainTabs} from '../navigation/navigationActions';
-import RemovableChip from '../components/ui/RemovableChip';
-import {UI, uiLayout, uiStyles} from '../theme/ui';
+import {resetToMainTabs} from '../navigation/navigationActions';
+import AppButton from '../components/ui/AppButton';
+import {useTheme} from '../context/ThemeContext';
+import {setProfileSetupSkipped} from '../utils/profileSetupStorage';
+import {MATE_CATEGORIES} from '../constants/mateCategories';
 
-const categoryData = [
-  {label: 'Movie Mate', value: 'Movie Mate'},
-  {label: 'Travel Mate', value: 'Travel Mate'},
-  {label: 'Time pass Mate', value: 'Time pass Mate'},
-  {label: 'Gaming Mate', value: 'Gaming Mate'},
-  {label: 'Study Mate', value: 'Study Mate'},
-];
-
-const dropdownProps = {
-  placeholderStyle: {color: UI.textHint, fontSize: 15},
-  selectedTextStyle: {color: UI.text, fontSize: 15, fontWeight: '600'},
-  itemTextStyle: {color: UI.text, fontSize: 15},
-  activeColor: '#F0F7FA',
-  iconStyle: {width: 22, height: 22},
+const CATEGORY_ICONS: Record<string, string> = {
+  shopping: '🛍',
+  movie: '🎬',
+  timepass: '☕',
+  hospital: '🏥',
+  talking: '💬',
+  travel: '✈',
+  home: '🏠',
+  children: '👶',
+  food: '🍽',
+  pub: '🍺',
+  vlog: '📹',
+  language: '🗣',
+  day: '☀',
+  other: '✦',
 };
 
+const RATE_PRESETS = ['50', '100', '150', '200'];
+
 const CategoryPreferenceScreen = ({navigation}: any) => {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const {colors} = useTheme();
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const [openToAny, setOpenToAny] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [budget, setBudget] = useState('');
   const [finishing, setFinishing] = useState(false);
 
-  const addCategory = (item: {value: string}) => {
-    if (!selectedCategories.includes(item.value)) {
-      setSelectedCategories([...selectedCategories, item.value]);
-    }
-  };
+  const displayBudget = budget.trim() || '50';
 
-  const removeCategory = (category: string) => {
-    setSelectedCategories(
-      selectedCategories.filter(item => item !== category),
-    );
-  };
-
-  const handleFinish = async () => {
+  const finish = async (skipped: boolean) => {
     setFinishing(true);
     try {
+      if (skipped) await setProfileSetupSkipped(true);
       await setOnboardingComplete();
       resetToMainTabs(navigation);
     } finally {
@@ -61,278 +59,430 @@ const CategoryPreferenceScreen = ({navigation}: any) => {
     }
   };
 
-  const displayBudget = budget.trim() || '50';
+  const toggleOpenToAny = () => {
+    setOpenToAny(true);
+    setSelectedIds([]);
+  };
+
+  const toggleCategory = (id: string) => {
+    setOpenToAny(false);
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
+    );
+  };
+
+  const selectPreset = (amount: string) => {
+    setBudget(amount);
+  };
 
   return (
-    <>
-      <StatusBar backgroundColor={UI.bgCream} barStyle="dark-content" />
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
-          <BackButton onPress={() => goBackSafe(navigation)} />
+    <KeyboardAvoidingView
+      style={[styles.flex, {backgroundColor: colors.bg}]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: insets.bottom + 32,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.headerSide} />
+          <Text style={styles.headerBrand}>Tenure</Text>
+          <Text style={styles.stepLabel}>Step 2 of 2</Text>
+        </View>
 
-          <Text style={styles.heading}>Select Category*</Text>
+        <View style={styles.progressRow}>
+          <View style={[styles.progressSeg, styles.progressDone]} />
+          <View style={[styles.progressSeg, styles.progressActive]} />
+        </View>
 
-          <View style={styles.requestBox}>
-            <Text style={styles.requestText}>Depends on user request</Text>
+        <Text style={styles.title}>What you offer</Text>
+        <Text style={styles.subtitle}>
+          Tell others how you can show up as a mate — all optional, editable
+          anytime in Profile.
+        </Text>
+
+        <Text style={styles.sectionLabel}>AVAILABILITY</Text>
+        <Pressable
+          onPress={toggleOpenToAny}
+          style={[
+            styles.anyCard,
+            openToAny && styles.anyCardActive,
+          ]}>
+          <View style={[styles.anyIconWrap, openToAny && styles.anyIconActive]}>
+            <Text style={[styles.anyIcon, openToAny && styles.anyIconOn]}>
+              ✦
+            </Text>
           </View>
-
-          <View style={styles.orRow}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>OR</Text>
-            <View style={styles.orLine} />
+          <View style={styles.anyTextBlock}>
+            <Text style={[styles.anyTitle, openToAny && styles.anyTitleActive]}>
+              Open to any activity
+            </Text>
+            <Text style={styles.anySub}>
+              Let requesters choose — shopping, travel, time pass, and more.
+            </Text>
           </View>
+          <View style={[styles.radio, openToAny && styles.radioOn]}>
+            {openToAny ? <View style={styles.radioDot} /> : null}
+          </View>
+        </Pressable>
 
-          <Dropdown
-            {...dropdownProps}
-            style={styles.dropdown}
-            data={categoryData}
-            labelField="label"
-            valueField="value"
-            placeholder="Select Category*"
-            value={null}
-            onChange={item => addCategory(item)}
-          />
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or pick mate types</Text>
+          <View style={styles.dividerLine} />
+        </View>
 
-          {selectedCategories.length > 0 ? (
-            <View style={styles.chipContainer}>
-              {selectedCategories.map(category => (
-                <RemovableChip
-                  key={category}
-                  label={category}
-                  onRemove={() => removeCategory(category)}
-                />
-              ))}
-            </View>
-          ) : null}
+        <View style={styles.grid}>
+          {MATE_CATEGORIES.map(cat => {
+            const selected = selectedIds.includes(cat.id);
+            return (
+              <Pressable
+                key={cat.id}
+                onPress={() => toggleCategory(cat.id)}
+                style={[
+                  styles.catCard,
+                  selected && styles.catCardSelected,
+                  openToAny && !selected && styles.catCardMuted,
+                ]}>
+                <Text style={styles.catEmoji}>
+                  {CATEGORY_ICONS[cat.id] ?? '✦'}
+                </Text>
+                <Text
+                  style={[styles.catLabel, selected && styles.catLabelSelected]}
+                  numberOfLines={2}>
+                  {cat.label.replace(' Mate', '')}
+                </Text>
+                {selected ? (
+                  <View style={styles.catCheck}>
+                    <Text style={styles.catCheckMark}>✓</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
 
-          <Text style={styles.budgetHeading}>Money spent per hour</Text>
+        {selectedIds.length > 0 ? (
+          <Text style={styles.selectionHint}>
+            {selectedIds.length} mate type{selectedIds.length === 1 ? '' : 's'}{' '}
+            selected
+          </Text>
+        ) : null}
 
-          <View style={styles.budgetBox}>
+        <Text style={[styles.sectionLabel, styles.rateSection]}>HOURLY RATE</Text>
+        <View style={styles.rateCard}>
+          <Text style={styles.rateCardHint}>Your time, your price</Text>
+          <View style={styles.rateInputRow}>
             <Text style={styles.currency}>₹</Text>
             <TextInput
               placeholder="50"
-              placeholderTextColor={UI.text}
+              placeholderTextColor={colors.textHint}
               keyboardType="number-pad"
               maxLength={5}
               value={budget}
               onChangeText={setBudget}
-              style={styles.budgetInput}
+              style={styles.rateInput}
             />
-            <Text style={styles.perHour}>/H</Text>
+            <Text style={styles.perHour}>/ hour</Text>
           </View>
+          <View style={styles.presetRow}>
+            {RATE_PRESETS.map(p => {
+              const active = displayBudget === p;
+              return (
+                <Pressable
+                  key={p}
+                  onPress={() => selectPreset(p)}
+                  style={[styles.preset, active && styles.presetActive]}>
+                  <Text
+                    style={[
+                      styles.presetText,
+                      active && styles.presetTextActive,
+                    ]}>
+                    ₹{p}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
-          {!budget.trim() ? (
-            <Text style={styles.budgetHint}>
-              Suggested: ₹ {displayBudget}/H
-            </Text>
-          ) : null}
-
-          <Pressable
-            style={({pressed}) => [
-              styles.updateButton,
-              pressed && styles.updateButtonPressed,
-            ]}>
-            <Text style={styles.updateText}>Update more</Text>
-          </Pressable>
-
-          <Pressable
-            style={({pressed}) => [
-              styles.finishButton,
-              finishing && styles.finishButtonDisabled,
-              pressed && !finishing && styles.finishButtonPressed,
-            ]}
-            onPress={handleFinish}
-            disabled={finishing}>
-            {finishing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.finishText}>Save & Finish</Text>
-            )}
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </>
+        <View style={styles.actions}>
+          <AppButton
+            label="Enter Tenure"
+            onPress={() => finish(false)}
+            loading={finishing}
+            pill
+          />
+          <AppButton
+            label="Explore first — set up later"
+            onPress={() => finish(true)}
+            variant="ghost"
+            disabled={finishing}
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 export default CategoryPreferenceScreen;
 
-const pillField = {
-  ...uiLayout.inputField,
-  height: 56,
-  borderRadius: 28,
-  paddingVertical: 0,
-};
-
-const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: UI.bgCream,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: UI.bgCream,
-  },
-  content: {
-    paddingHorizontal: 26,
-    paddingTop: 48,
-    paddingBottom: 56,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 28,
-    padding: 4,
-  },
-  backPressed: {
-    opacity: 0.6,
-  },
-  heading: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: UI.text,
-    marginBottom: 18,
-  },
-  requestBox: {
-    ...pillField,
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-    backgroundColor: '#F0F7FA',
-    borderColor: '#C5DCE6',
-  },
-  requestText: {
-    color: UI.brand,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  orRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 20,
-    gap: 12,
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: UI.borderInput,
-  },
-  orText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: UI.textMuted,
-    letterSpacing: 0.5,
-  },
-  dropdown: {
-    ...pillField,
-    paddingHorizontal: 22,
-  },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 16,
-    gap: 10,
-  },
-  budgetHeading: {
-    alignSelf: 'center',
-    marginTop: 44,
-    marginBottom: 16,
-    fontSize: 17,
-    fontWeight: '600',
-    color: UI.textSecondary,
-  },
-  budgetBox: {
-    minWidth: 210,
-    paddingHorizontal: 20,
-    height: 76,
-    backgroundColor: UI.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: UI.borderPill,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  currency: {
-    fontSize: 26,
-    color: UI.text,
-    fontWeight: '700',
-    marginRight: 4,
-  },
-  budgetInput: {
-    fontSize: 28,
-    color: UI.text,
-    fontWeight: '800',
-    minWidth: 48,
-    textAlign: 'center',
-    padding: 0,
-  },
-  perHour: {
-    fontSize: 22,
-    color: UI.text,
-    fontWeight: '700',
-    marginLeft: 2,
-  },
-  budgetHint: {
-    alignSelf: 'center',
-    marginTop: 10,
-    fontSize: 12,
-    color: UI.textHint,
-    fontWeight: '500',
-  },
-  updateButton: {
-    marginTop: 40,
-    alignSelf: 'center',
-    backgroundColor: '#E8EDF8',
-    borderWidth: 1,
-    borderColor: '#B8C9E8',
-    borderRadius: 12,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-  },
-  updateButtonPressed: {
-    opacity: 0.88,
-  },
-  updateText: {
-    color: UI.brandMuted,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  finishButton: {
-    marginTop: 28,
-    backgroundColor: UI.brand,
-    minWidth: 220,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    borderRadius: 28,
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: UI.brand,
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  finishButtonPressed: {
-    opacity: 0.92,
-  },
-  finishButtonDisabled: {
-    opacity: 0.75,
-  },
-  finishText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    flex: {flex: 1},
+    content: {paddingHorizontal: 24},
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 14,
+    },
+    headerSide: {width: 72},
+    headerBrand: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: 18,
+      fontWeight: '800',
+      color: c.brandDark,
+    },
+    stepLabel: {
+      width: 72,
+      textAlign: 'right',
+      fontSize: 12,
+      fontWeight: '600',
+      color: c.textHint,
+    },
+    progressRow: {
+      flexDirection: 'row',
+      gap: 6,
+      marginBottom: 28,
+    },
+    progressSeg: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.border,
+    },
+    progressDone: {backgroundColor: c.brandMuted},
+    progressActive: {backgroundColor: c.brandDark},
+    title: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: c.brandDark,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 14,
+      lineHeight: 21,
+      color: c.textMuted,
+      marginBottom: 28,
+    },
+    sectionLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: c.brandDark,
+      letterSpacing: 1.2,
+      marginBottom: 12,
+    },
+    rateSection: {marginTop: 8},
+    anyCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 24,
+      backgroundColor: c.bg,
+      gap: 14,
+    },
+    anyCardActive: {
+      borderColor: c.brand,
+      borderLeftWidth: 3,
+      borderLeftColor: c.brand,
+    },
+    anyIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: c.chip,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    anyIconActive: {backgroundColor: c.brandDark},
+    anyIcon: {fontSize: 20, color: c.brandDark},
+    anyIconOn: {color: '#FFFFFF'},
+    anyTextBlock: {flex: 1},
+    anyTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: c.text,
+      marginBottom: 4,
+    },
+    anyTitleActive: {color: c.brandDark},
+    anySub: {
+      fontSize: 12,
+      lineHeight: 17,
+      color: c.textMuted,
+    },
+    radio: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: c.borderPill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radioOn: {borderColor: c.brand},
+    radioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: c.brand,
+    },
+    dividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 20,
+    },
+    dividerLine: {flex: 1, height: 1, backgroundColor: c.border},
+    dividerText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: c.textHint,
+      letterSpacing: 0.5,
+    },
+    grid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 12,
+    },
+    catCard: {
+      width: '31%',
+      aspectRatio: 1,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 14,
+      padding: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.bg,
+      position: 'relative',
+    },
+    catCardSelected: {
+      borderColor: c.brand,
+      borderWidth: 1.5,
+      backgroundColor: c.bg,
+    },
+    catCardMuted: {opacity: 0.72},
+    catEmoji: {fontSize: 22, marginBottom: 6},
+    catLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: c.textSecondary,
+      textAlign: 'center',
+      lineHeight: 14,
+    },
+    catLabelSelected: {color: c.brandDark, fontWeight: '700'},
+    catCheck: {
+      position: 'absolute',
+      top: 6,
+      right: 6,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: c.brand,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    catCheckMark: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '800',
+    },
+    selectionHint: {
+      fontSize: 12,
+      color: c.brand,
+      fontWeight: '600',
+      marginBottom: 20,
+      textAlign: 'center',
+    },
+    rateCard: {
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 8,
+      backgroundColor: c.bg,
+    },
+    rateCardHint: {
+      fontSize: 13,
+      color: c.textMuted,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    rateInputRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'center',
+      gap: 6,
+      marginBottom: 20,
+    },
+    currency: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: c.brandDark,
+    },
+    rateInput: {
+      fontSize: 40,
+      fontWeight: '800',
+      color: c.text,
+      minWidth: 72,
+      textAlign: 'center',
+      padding: 0,
+    },
+    perHour: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.textMuted,
+    },
+    presetRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    preset: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bg,
+    },
+    presetActive: {
+      borderColor: c.brand,
+      backgroundColor: c.chip,
+    },
+    presetText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: c.textSecondary,
+    },
+    presetTextActive: {
+      color: c.brandDark,
+      fontWeight: '700',
+    },
+    actions: {
+      marginTop: 32,
+      gap: 8,
+      paddingBottom: 8,
+    },
+  });

@@ -5,6 +5,7 @@ import {
   formatMessageTime,
   formatVoiceDuration,
 } from '../../types/chat';
+import {useTheme} from '../../context/ThemeContext';
 
 type Props = {
   messages: ChatMessage[];
@@ -19,6 +20,9 @@ const ChatMessageList = ({
   onPlayVoice,
   sessionLabel,
 }: Props) => {
+  const {colors} = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+
   if (messages.length === 0) {
     return (
       <Text style={styles.emptyChat}>
@@ -90,71 +94,78 @@ const ChatMessageList = ({
 
 export default ChatMessageList;
 
-const styles = StyleSheet.create({
-  wrap: {paddingTop: 4},
-  emptyChat: {
-    textAlign: 'center',
-    color: '#AAAAAA',
-    fontSize: 14,
-    marginTop: 24,
-  },
-  dateChip: {
-    alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    fontSize: 12,
-    color: '#666666',
-    marginBottom: 14,
-    overflow: 'hidden',
-  },
-  systemText: {
-    textAlign: 'center',
-    color: '#999999',
-    fontSize: 12,
-    marginVertical: 8,
-  },
-  rowLeft: {alignItems: 'flex-start', marginBottom: 10},
-  rowRight: {alignItems: 'flex-end', marginBottom: 10},
-  bubbleThem: {
-    backgroundColor: '#E8E8E8',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    maxWidth: '80%',
-  },
-  bubbleMe: {
-    backgroundColor: '#003B57',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    maxWidth: '80%',
-  },
-  textThem: {fontSize: 15, color: '#111111'},
-  textMe: {fontSize: 15, color: '#FFFFFF'},
-  chatImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 14,
-    marginBottom: 4,
-  },
-  voiceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  voiceIcon: {fontSize: 16, color: '#003B57', marginRight: 6},
-  voiceIconMe: {fontSize: 16, color: '#FFFFFF', marginRight: 6},
-  timeThem: {
-    fontSize: 10,
-    color: '#888888',
-    alignSelf: 'flex-end',
-    marginTop: 6,
-  },
-  timeMe: {
-    fontSize: 10,
-    color: '#C5DCE6',
-    alignSelf: 'flex-end',
-    marginTop: 6,
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    wrap: {paddingTop: 6},
+    emptyChat: {
+      textAlign: 'center',
+      color: c.textHint,
+      fontSize: 13,
+      marginTop: 24,
+    },
+    dateChip: {
+      alignSelf: 'center',
+      backgroundColor: c.card,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      fontSize: 11,
+      color: c.textSecondary,
+      marginBottom: 12,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    systemText: {
+      textAlign: 'center',
+      color: c.textHint,
+      fontSize: 12,
+      marginVertical: 8,
+    },
+    rowLeft: {alignItems: 'flex-start', marginBottom: 8},
+    rowRight: {alignItems: 'flex-end', marginBottom: 8},
+    bubbleThem: {
+      backgroundColor: c.card,
+      borderRadius: 16,
+      borderBottomLeftRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      maxWidth: '82%',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    bubbleMe: {
+      backgroundColor: c.primary,
+      borderRadius: 16,
+      borderBottomRightRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      maxWidth: '82%',
+    },
+    textThem: {fontSize: 14, color: c.text},
+    textMe: {fontSize: 14, color: '#FFFFFF'},
+    chatImage: {
+      width: 196,
+      height: 196,
+      borderRadius: 12,
+      marginBottom: 4,
+    },
+    voiceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    voiceIcon: {fontSize: 15, color: c.brand, marginRight: 6},
+    voiceIconMe: {fontSize: 15, color: '#FFFFFF', marginRight: 6},
+    timeThem: {
+      fontSize: 10,
+      color: c.textHint,
+      alignSelf: 'flex-end',
+      marginTop: 6,
+    },
+    timeMe: {
+      fontSize: 10,
+      color: c.textHint,
+      alignSelf: 'flex-end',
+      marginTop: 6,
+    },
+  });

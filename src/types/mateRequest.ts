@@ -27,4 +27,7 @@ export type MateRequest = {
   delivered?: boolean;
   /** Received cards: "she" | "he" → "she requested :" on Home */
   requesterPronoun?: 'she' | 'he';
+  /** Mate map pin — from backend / geocoding; optional until then */
+  mateLatitude?: number;
+  mateLongitude?: number;
 };

@@ -9,7 +9,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import {UI} from '../../theme/ui';
+import {useTheme} from '../../context/ThemeContext';
 
 type Props = {
   visible: boolean;
@@ -30,10 +30,11 @@ const BottomSheetModal = ({
   keyboardAvoiding = true,
   sheetContainerStyle,
 }: Props) => {
+  const {colors} = useTheme();
   const body = (
     <View style={styles.root}>
       <Pressable
-        style={styles.backdrop}
+        style={[styles.backdrop, {backgroundColor: colors.sheetScrim}]}
         onPress={onClose}
         accessibilityRole="button"
         accessibilityLabel="Dismiss"
@@ -76,7 +77,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: UI.sheetScrim,
   },
   sheetSlot: {
     width: '100%',

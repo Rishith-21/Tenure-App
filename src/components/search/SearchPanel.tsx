@@ -91,6 +91,9 @@ export type SearchPanelProps = {
   stackNavigation?: {navigate: (name: string, params?: object) => void};
   autoFocus?: boolean;
   inputRef?: React.RefObject<TextInput | null>;
+  hideSearchRow?: boolean;
+  query?: string;
+  onChangeQuery?: (value: string) => void;
 };
 
 const SearchPanel = ({
@@ -98,12 +101,18 @@ const SearchPanel = ({
   stackNavigation,
   autoFocus = true,
   inputRef: externalInputRef,
+  hideSearchRow = false,
+  query: controlledQuery,
+  onChangeQuery: onControlledQueryChange,
 }: SearchPanelProps) => {
   const internalInputRef = useRef<TextInput>(null);
   const inputRef = externalInputRef ?? internalInputRef;
 
-  const [query, setQuery] = useState('');
+  const [queryState, setQueryState] = useState('');
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
+  const query = controlledQuery ?? queryState;
+  const setQuery = onControlledQueryChange ?? setQueryState;
+
   const [filterVisible, setFilterVisible] = useState(false);
   const [favorites, setFavorites] = useState<Record<string, boolean>>({
     u2: true,
@@ -152,45 +161,47 @@ const SearchPanel = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.searchRow}>
-        <BackButton onPress={onClose} style={styles.backHit} />
+      {!hideSearchRow ? (
+        <View style={styles.searchRow}>
+          <BackButton onPress={onClose} style={styles.backHit} />
 
-        <View style={styles.searchInputWrap}>
-          <Text style={styles.searchIcon}>⌕</Text>
-          <TextInput
-            ref={inputRef}
-            placeholder="Search mates, categories, ID…"
-            placeholderTextColor={UI.textHint}
-            value={query}
-            onChangeText={setQuery}
-            style={styles.searchInput}
-            autoFocus={autoFocus}
-            returnKeyType="search"
-          />
-          {query.length > 0 ? (
-            <Pressable
-              onPress={() => setQuery('')}
-              hitSlop={8}
-              style={styles.clearBtn}>
-              <Text style={styles.clearText}>×</Text>
-            </Pressable>
-          ) : null}
+          <View style={styles.searchInputWrap}>
+            <Text style={styles.searchIcon}>⌕</Text>
+            <TextInput
+              ref={inputRef}
+              placeholder="Search mates, categories, ID…"
+              placeholderTextColor={UI.textHint}
+              value={query}
+              onChangeText={setQuery}
+              style={styles.searchInput}
+              autoFocus={autoFocus}
+              returnKeyType="search"
+            />
+            {query.length > 0 ? (
+              <Pressable
+                onPress={() => setQuery('')}
+                hitSlop={8}
+                style={styles.clearBtn}>
+                <Text style={styles.clearText}>×</Text>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <Pressable
+            style={[
+              styles.filterBtn,
+              activeFilterCount > 0 && styles.filterBtnActive,
+            ]}
+            onPress={() => setFilterVisible(true)}>
+            <Text style={styles.filterIcon}>☰</Text>
+            {activeFilterCount > 0 ? (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
-
-        <Pressable
-          style={[
-            styles.filterBtn,
-            activeFilterCount > 0 && styles.filterBtnActive,
-          ]}
-          onPress={() => setFilterVisible(true)}>
-          <Text style={styles.filterIcon}>☰</Text>
-          {activeFilterCount > 0 ? (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-      </View>
+      ) : null}
 
       {!showResults ? (
         <ScrollView

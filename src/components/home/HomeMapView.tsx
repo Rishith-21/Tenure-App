@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo, useRef} from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -10,21 +10,57 @@ import {
 import MapView, {Marker, PROVIDER_GOOGLE, Region} from 'react-native-maps';
 import {mapsEnabledOnAndroid} from '../../config/maps';
 import {useUserLocation} from '../../hooks/useUserLocation';
-import {UI} from '../../theme/ui';
+import {useTheme} from '../../context/ThemeContext';
+import {focusRegionFor, MapCoordinate} from '../../utils/meetMapCoords';
 import HomeMapPlaceholder from './HomeMapPlaceholder';
 
-type Props = {
-  locationLabel?: string;
+export type HomeMapMarker = {
+  id: string;
+  coordinate: MapCoordinate;
+  title: string;
+  selected: boolean;
 };
 
-const HomeMapView = ({locationLabel = 'Your area'}: Props) => {
-  const {region, coordinate, loading, permissionDenied, refresh} =
-    useUserLocation(true);
+export type MapEdgePadding = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
+
+type Props = {
+  focusCoordinate?: MapCoordinate | null;
+  markers?: HomeMapMarker[];
+  locationLabel?: string;
+  /** Tapping the map (not a pin) — e.g. collapse meet deck on Home */
+  onMapPress?: () => void;
+  /** Keeps the focused point in the visible “sweet spot” above bottom UI */
+  mapPadding?: MapEdgePadding;
+};
+
+const defaultPadding: MapEdgePadding = {
+  top: 120,
+  right: 12,
+  bottom: 200,
+  left: 12,
+};
+
+const HomeMapView = ({
+  focusCoordinate,
+  markers = [],
+  locationLabel = 'Your area',
+  onMapPress,
+  mapPadding = defaultPadding,
+}: Props) => {
+  const {colors} = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const mapRef = useRef<MapView>(null);
+  const {region, loading, permissionDenied, refresh} = useUserLocation(true);
 
   const canShowNativeMap =
     Platform.OS === 'ios' || (Platform.OS === 'android' && mapsEnabledOnAndroid());
 
-  const mapRegion: Region = useMemo(
+  const userRegion: Region = useMemo(
     () => ({
       latitude: region.latitude,
       longitude: region.longitude,
@@ -34,18 +70,20 @@ const HomeMapView = ({locationLabel = 'Your area'}: Props) => {
     [region],
   );
 
+  const paddingKey = `${mapPadding.top}-${mapPadding.bottom}`;
+
+  useEffect(() => {
+    if (!focusCoordinate || !mapRef.current) {
+      return;
+    }
+    const r = focusRegionFor(focusCoordinate);
+    mapRef.current.animateToRegion(r, 420);
+  }, [focusCoordinate?.latitude, focusCoordinate?.longitude, paddingKey]);
+
   if (!canShowNativeMap) {
     return (
       <View style={styles.wrap}>
-        <HomeMapPlaceholder />
-        <View style={styles.setupBanner}>
-          <Text style={styles.setupTitle}>Map SDK</Text>
-          <Text style={styles.setupText}>
-            Add a Google Maps API key in{' '}
-            <Text style={styles.setupCode}>src/config/maps.ts</Text> (Android).
-            iOS uses Apple Maps automatically.
-          </Text>
-        </View>
+        <HomeMapPlaceholder onBackdropPress={onMapPress} />
       </View>
     );
   }
@@ -53,29 +91,32 @@ const HomeMapView = ({locationLabel = 'Your area'}: Props) => {
   return (
     <View style={styles.wrap}>
       <MapView
+        ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        region={mapRegion}
+        initialRegion={userRegion}
+        mapPadding={mapPadding}
         showsUserLocation
         showsMyLocationButton={false}
-        toolbarEnabled={false}>
-        <Marker
-          coordinate={{
-            latitude: coordinate?.latitude ?? mapRegion.latitude,
-            longitude: coordinate?.longitude ?? mapRegion.longitude,
-          }}
-          title={locationLabel}
-          description={
-            permissionDenied
-              ? 'Location off — showing default area'
-              : 'You are here'
-          }
-        />
+        toolbarEnabled={false}
+        accessibilityLabel={locationLabel}
+        onPress={() => onMapPress?.()}>
+        {markers.map(marker => (
+          <Marker
+            key={marker.id}
+            coordinate={marker.coordinate}
+            anchor={{x: 0.5, y: 1}}
+            tracksViewChanges={false}
+            title={marker.title}
+            description={marker.selected ? 'Selected meet' : undefined}
+            pinColor={marker.selected ? colors.brandDark : colors.brandMuted}
+          />
+        ))}
       </MapView>
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={UI.brand} />
+          <ActivityIndicator color={colors.brand} />
         </View>
       ) : null}
 
@@ -90,59 +131,36 @@ const HomeMapView = ({locationLabel = 'Your area'}: Props) => {
 
 export default HomeMapView;
 
-const styles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  loading: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: UI.card,
-    borderRadius: 20,
-    padding: 8,
-    elevation: 3,
-  },
-  permissionChip: {
-    position: 'absolute',
-    bottom: 12,
-    alignSelf: 'center',
-    backgroundColor: UI.brand,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  permissionText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  setupBanner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 59, 87, 0.92)',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  setupTitle: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  setupText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  setupCode: {
-    fontFamily: Platform.select({ios: 'Menlo', android: 'monospace'}),
-    fontWeight: '600',
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    wrap: {
+      flex: 1,
+      overflow: 'hidden',
+    },
+    map: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    loading: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      backgroundColor: c.bg,
+      borderRadius: 20,
+      padding: 8,
+      elevation: 3,
+    },
+    permissionChip: {
+      position: 'absolute',
+      top: '42%',
+      alignSelf: 'center',
+      backgroundColor: c.brand,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 20,
+    },
+    permissionText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+  });

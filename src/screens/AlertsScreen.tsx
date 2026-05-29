@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {
   View,
   Text,
@@ -18,10 +18,11 @@ import {
 import {MainTabParamList} from '../navigation/MainTabNavigator';
 import {useAppDialog} from '../context/DialogContext';
 import BackButton from '../components/navigation/BackButton';
-
-const FILTER_BADGE_COUNT = 2;
+import {useTheme} from '../context/ThemeContext';
 
 const AlertsScreen = () => {
+  const {colors} = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {showAlert} = useAppDialog();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
@@ -38,7 +39,6 @@ const AlertsScreen = () => {
 
   return (
     <View style={[styles.container, {paddingTop: insets.top + 8}]}>
-      <StatusBar backgroundColor="#F9F9F7" barStyle="dark-content" />
 
       <View style={styles.header}>
         <BackButton
@@ -46,7 +46,7 @@ const AlertsScreen = () => {
           accessibilityLabel="Go to home"
         />
 
-        <Text style={styles.headerTitle}>History and Transactions</Text>
+        <Text style={styles.headerTitle}>Alerts</Text>
 
         <Pressable
           style={styles.headerSide}
@@ -61,13 +61,44 @@ const AlertsScreen = () => {
           }}
           hitSlop={8}>
           <View style={styles.filterWrap}>
-            <Text style={styles.filterIcon}>☰</Text>
-            {FILTER_BADGE_COUNT > 0 ? (
+            <Text style={styles.filterIcon}>≡</Text>
+            {filterActive ? (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{FILTER_BADGE_COUNT}</Text>
+                <Text style={styles.badgeText}>1</Text>
               </View>
             ) : null}
           </View>
+        </Pressable>
+      </View>
+
+      <View style={styles.filterPillsRow}>
+        <Pressable
+          style={[
+            styles.filterPill,
+            !filterActive && styles.filterPillActive,
+          ]}
+          onPress={() => setFilterActive(false)}>
+          <Text
+            style={[
+              styles.filterPillText,
+              !filterActive && styles.filterPillTextActive,
+            ]}>
+            All activity
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[
+            styles.filterPill,
+            filterActive && styles.filterPillActive,
+          ]}
+          onPress={() => setFilterActive(true)}>
+          <Text
+            style={[
+              styles.filterPillText,
+              filterActive && styles.filterPillTextActive,
+            ]}>
+            Payments only
+          </Text>
         </Pressable>
       </View>
 
@@ -79,11 +110,9 @@ const AlertsScreen = () => {
         ]}>
         <View style={styles.pendingBar}>
           <View style={styles.pendingLeft}>
-            <Text style={styles.pendingLabel}>
-              {MOCK_PENDING_PAYMENTS.label}
-            </Text>
+            <Text style={styles.pendingLabel}>Pending payments</Text>
             <Text style={styles.pendingCount}>
-              {MOCK_PENDING_PAYMENTS.count} Pending
+              {MOCK_PENDING_PAYMENTS.count} cancellation(s) to complete
             </Text>
           </View>
           <Pressable
@@ -97,7 +126,7 @@ const AlertsScreen = () => {
                 message: `You have ${MOCK_PENDING_PAYMENTS.count} canceled payment(s) to complete.`,
               })
             }>
-            <Text style={styles.payBtnText}>PAY</Text>
+            <Text style={styles.payBtnText}>Pay now</Text>
           </Pressable>
         </View>
 
@@ -120,16 +149,17 @@ const AlertsScreen = () => {
 
 export default AlertsScreen;
 
-const styles = StyleSheet.create({
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F9F7',
+    backgroundColor: c.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 14,
   },
   headerSide: {
     width: 44,
@@ -138,13 +168,13 @@ const styles = StyleSheet.create({
   },
   backArrow: {
     fontSize: 28,
-    color: '#111111',
+    color: c.text,
   },
   headerTitle: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#111111',
+    color: c.text,
     textAlign: 'center',
   },
   filterWrap: {
@@ -155,10 +185,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   filterIcon: {
-    fontSize: 22,
-    color: '#333333',
+    fontSize: 20,
+    color: c.textSecondary,
     fontWeight: '700',
-    letterSpacing: -2,
+    letterSpacing: -1,
   },
   badge: {
     position: 'absolute',
@@ -167,7 +197,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#111111',
+    backgroundColor: c.brand,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -180,45 +210,72 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: 20,
   },
+  filterPillsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 8,
+    marginBottom: 12,
+  },
+  filterPill: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: c.bgElevated,
+  },
+  filterPillActive: {
+    backgroundColor: c.bg,
+    borderColor: c.brand,
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: c.textMuted,
+  },
+  filterPillTextActive: {
+    color: c.brand,
+  },
   pendingBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#E5E5E5',
-    borderRadius: 28,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginBottom: 24,
+    backgroundColor: c.bg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: c.border,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 18,
   },
   pendingLeft: {
     flex: 1,
     marginRight: 12,
   },
   pendingLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
-    textTransform: 'lowercase',
+    fontSize: 13,
+    fontWeight: '700',
+    color: c.text,
   },
   pendingCount: {
-    fontSize: 13,
-    color: '#555555',
+    fontSize: 12,
+    color: c.textMuted,
     marginTop: 4,
     fontWeight: '500',
   },
   payBtn: {
-    backgroundColor: '#2A2A2A',
-    borderRadius: 22,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
+    backgroundColor: c.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   payBtnPressed: {
     opacity: 0.88,
   },
   payBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
 });

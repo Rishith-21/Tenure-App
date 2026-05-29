@@ -1,4 +1,5 @@
-import React from 'react';
+import React, {useMemo} from 'react';
+import {useTheme} from '../../context/ThemeContext';
 import {
   Modal,
   View,
@@ -8,8 +9,6 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import {UI} from '../../theme/ui';
-
 const CHOICE_LIST_MAX_HEIGHT = Math.min(
   Dimensions.get('window').height * 0.5,
   400,
@@ -41,6 +40,9 @@ const AppDialog = ({
   buttons,
   onDismiss,
 }: Props) => {
+  const {colors} = useTheme();
+  const styles = useMemo(() => createDialogStyles(colors), [colors]);
+
   const handlePress = (button: AppDialogButton) => {
     onDismiss();
     button.onPress?.();
@@ -86,7 +88,7 @@ const AppDialog = ({
                   style={styles.choiceScroll}
                   contentContainerStyle={styles.choiceScrollContent}
                   showsVerticalScrollIndicator
-                  indicatorStyle="black"
+                  indicatorStyle={colors.statusBar === 'light-content' ? 'white' : 'black'}
                   nestedScrollEnabled
                   bounces>
                   {choiceOptions.map((button, index) => (
@@ -165,10 +167,11 @@ const AppDialog = ({
 
 export default AppDialog;
 
-const styles = StyleSheet.create({
+const createDialogStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: UI.sheetScrim,
+    backgroundColor: c.sheetScrim,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -177,19 +180,19 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: UI.card,
-    borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 22,
+    backgroundColor: c.card,
+    borderRadius: 22,
+    paddingHorizontal: 22,
+    paddingTop: 24,
+    paddingBottom: 18,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: UI.borderInput,
-    shadowColor: '#003B57',
-    shadowOffset: {width: 0, height: 12},
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 12,
+    borderColor: c.border,
+    shadowColor: c.shadow,
+    shadowOffset: {width: 0, height: 6},
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 4,
   },
   cardChoice: {
     paddingTop: 22,
@@ -199,29 +202,29 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: UI.cardMuted,
+    backgroundColor: c.cardMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
   iconText: {
     fontSize: 24,
-    color: UI.text,
+    color: c.text,
     fontWeight: '800',
   },
   title: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
-    color: UI.text,
+    color: c.text,
     textAlign: 'center',
     marginBottom: 8,
   },
   message: {
     fontSize: 15,
-    color: UI.textMuted,
+    color: c.textMuted,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 22,
+    marginBottom: 18,
   },
   messageChoice: {
     marginBottom: 12,
@@ -233,17 +236,17 @@ const styles = StyleSheet.create({
   scrollHint: {
     fontSize: 12,
     fontWeight: '600',
-    color: UI.textMuted,
+    color: c.textMuted,
     textAlign: 'center',
     marginBottom: 10,
   },
   choiceScrollFrame: {
     width: '100%',
     maxHeight: CHOICE_LIST_MAX_HEIGHT,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: UI.borderInput,
-    backgroundColor: UI.cardMuted,
+    borderColor: c.border,
+    backgroundColor: c.cardMuted,
     overflow: 'hidden',
   },
   choiceScroll: {
@@ -252,7 +255,7 @@ const styles = StyleSheet.create({
   },
   choiceScrollContent: {
     padding: 10,
-    paddingBottom: 14,
+    paddingBottom: 10,
   },
   scrollFade: {
     position: 'absolute',
@@ -260,27 +263,30 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 28,
-    backgroundColor: 'rgba(229, 231, 233, 0.92)',
+    backgroundColor:
+      c.statusBar === 'light-content'
+        ? 'rgba(26, 31, 38, 0.92)'
+        : 'rgba(237, 239, 243, 0.9)',
     borderBottomLeftRadius: 17,
     borderBottomRightRadius: 17,
   },
   choiceRow: {
-    backgroundColor: UI.card,
-    borderRadius: 14,
-    paddingVertical: 15,
+    backgroundColor: c.card,
+    borderRadius: 13,
+    paddingVertical: 13,
     paddingHorizontal: 16,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: UI.borderInput,
+    borderColor: c.border,
   },
   choiceRowPressed: {
-    backgroundColor: UI.primary,
-    borderColor: UI.primary,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   choiceText: {
     fontSize: 15,
     fontWeight: '600',
-    color: UI.text,
+    color: c.text,
     textAlign: 'center',
   },
   choiceTextPressed: {
@@ -292,8 +298,8 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    borderRadius: 22,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 13,
     alignItems: 'center',
     marginHorizontal: 5,
   },
@@ -301,7 +307,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   primaryButton: {
-    backgroundColor: UI.primary,
+    backgroundColor: c.primary,
   },
   destructiveButton: {
     backgroundColor: '#FEE8E8',
@@ -309,9 +315,9 @@ const styles = StyleSheet.create({
     borderColor: '#F5C2C2',
   },
   cancelButton: {
-    backgroundColor: '#F3F0EB',
+    backgroundColor: c.bgElevated,
     borderWidth: 1,
-    borderColor: '#E5DDD3',
+    borderColor: c.border,
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -324,9 +330,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   cancelButtonText: {
-    color: '#444444',
-    fontSize: 16,
-    fontWeight: '600',
+    color: c.textSecondary,
+    fontSize: 15,
+    fontWeight: '700',
   },
   choiceCancel: {
     marginTop: 8,
@@ -336,7 +342,7 @@ const styles = StyleSheet.create({
   },
   choiceCancelText: {
     fontSize: 15,
-    color: UI.textHint,
+    color: c.textHint,
     fontWeight: '600',
   },
 });

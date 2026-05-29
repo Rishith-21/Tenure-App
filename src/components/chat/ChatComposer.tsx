@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {formatVoiceDuration} from '../../types/chat';
+import {useTheme} from '../../context/ThemeContext';
 
 type Props = {
   message: string;
@@ -30,6 +31,8 @@ const ChatComposer = ({
   recordMs,
   sending = false,
 }: Props) => {
+  const {colors} = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   const canSend = message.trim().length > 0 && !sending;
 
   return (
@@ -91,97 +94,100 @@ const ChatComposer = ({
 
 export default ChatComposer;
 
-const styles = StyleSheet.create({
-  wrap: {
-    paddingTop: 4,
-  },
-  recordingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFE8E8',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  recordingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E53935',
-    marginRight: 8,
-  },
-  recordingText: {
-    fontSize: 13,
-    color: '#B71C1C',
-    fontWeight: '600',
-  },
-  composerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingBottom: 22,
-  },
-  inputShell: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#E8E0D6',
-    minHeight: 52,
-  },
-  attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-    marginBottom: 4,
-  },
-  attachIcon: {
-    fontSize: 22,
-    color: '#333333',
-    fontWeight: '600',
-    marginTop: -2,
-  },
-  messageInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#111111',
-    paddingVertical: 8,
-    maxHeight: 100,
-  },
-  micButton: {
-    paddingHorizontal: 8,
-    paddingBottom: 6,
-  },
-  micRecording: {
-    backgroundColor: '#FFCDD2',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-  },
-  micIcon: {fontSize: 18},
-  sendButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#003B57',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendDisabled: {
-    opacity: 0.45,
-  },
-  sendIcon: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '700',
-    marginTop: -2,
-  },
-});
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    wrap: {
+      paddingTop: 4,
+    },
+    recordingBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.chip,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    recordingDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.danger,
+      marginRight: 8,
+    },
+    recordingText: {
+      fontSize: 12,
+      color: c.textSecondary,
+      fontWeight: '600',
+    },
+    composerRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      paddingBottom: 14,
+    },
+    inputShell: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      backgroundColor: c.card,
+      borderRadius: 16,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      marginRight: 10,
+      borderWidth: 1,
+      borderColor: c.border,
+      minHeight: 50,
+    },
+    attachButton: {
+      width: 34,
+      height: 34,
+      borderRadius: 10,
+      backgroundColor: c.bgElevated,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 6,
+      marginBottom: 4,
+    },
+    attachIcon: {
+      fontSize: 20,
+      color: c.textSecondary,
+      fontWeight: '600',
+      marginTop: -2,
+    },
+    messageInput: {
+      flex: 1,
+      fontSize: 15,
+      color: c.text,
+      paddingVertical: 8,
+      maxHeight: 100,
+    },
+    micButton: {
+      paddingHorizontal: 8,
+      paddingBottom: 6,
+      borderRadius: 10,
+    },
+    micRecording: {
+      backgroundColor: c.chip,
+      paddingHorizontal: 10,
+    },
+    micIcon: {fontSize: 17, color: c.text},
+    sendButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sendDisabled: {
+      opacity: 0.45,
+    },
+    sendIcon: {
+      color: '#FFFFFF',
+      fontSize: 22,
+      fontWeight: '700',
+      marginTop: -2,
+    },
+  });

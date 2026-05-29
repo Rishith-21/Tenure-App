@@ -1,5 +1,7 @@
 import {create} from 'zustand';
 
+export const MAX_TENURE_SECONDS = 24 * 60 * 60;
+
 export type ActiveTenureSession = {
   mateName: string;
   mateTenureId: string;
@@ -16,18 +18,8 @@ type ActiveSessionState = {
   clearSession: () => void;
 };
 
-const DEMO_STARTED_AT =
-  Date.now() - (14 * 3600 + 43 * 60 + 8) * 1000;
-
 export const useActiveSessionStore = create<ActiveSessionState>(set => ({
-  session: {
-    mateName: 'Swan',
-    mateTenureId: 'FGR45IH',
-    mateAvatar: 'https://i.pravatar.cc/150?img=12',
-    fromDateTime: '26-10-2026 10:30 pm',
-    toDateTime: '27-10-2026 08:23 am',
-    startedAt: DEMO_STARTED_AT,
-  },
+  session: null,
 
   startSession: session => set({session}),
   clearSession: () => set({session: null}),

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  StatusBar,
   Pressable,
   ScrollView,
   Dimensions,
@@ -21,9 +20,11 @@ import {useMateRequestsStore} from '../store/mateRequestsStore';
 import {MainTabParamList} from '../navigation/MainTabNavigator';
 import {useAppDialog} from '../context/DialogContext';
 import BackButton from '../components/navigation/BackButton';
+import {useTheme} from '../context/ThemeContext';
 
 type SwipeTab = 'request' | 'sent';
 type TabKey = SwipeTab | 'expired';
+type ExpiredFilter = 'all' | 'sent' | 'received';
 
 type RequestsNav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Requests'>,
@@ -34,6 +35,8 @@ const {width: PAGE_WIDTH} = Dimensions.get('window');
 const DRAWER_COLLAPSED = 168;
 
 const RequestsScreen = () => {
+  const {colors} = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const {showConfirm, showAlert} = useAppDialog();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<RequestsNav>();
@@ -41,6 +44,7 @@ const RequestsScreen = () => {
 
   const [activeTab, setActiveTab] = useState<TabKey>('sent');
   const [swipeTab, setSwipeTab] = useState<SwipeTab>('sent');
+  const [expiredFilter, setExpiredFilter] = useState<ExpiredFilter>('all');
 
   const received = useMateRequestsStore(s => s.received);
   const sent = useMateRequestsStore(s => s.sent);
@@ -59,9 +63,21 @@ const RequestsScreen = () => {
   );
 
   const expiredProfiles = useMemo(
-    () => [...archivedSent, ...sent.filter(r => r.status === 'expired')],
-    [archivedSent, sent],
+    () => [
+      ...archivedSent,
+      ...archivedReceived,
+      ...sent.filter(r => r.status === 'expired'),
+      ...received.filter(r => r.status === 'expired'),
+    ],
+    [archivedSent, archivedReceived, sent, received],
   );
+  const filteredExpiredProfiles = useMemo(() => {
+    if (expiredFilter === 'all') {
+      return expiredProfiles;
+    }
+    return expiredProfiles.filter(r => r.direction === expiredFilter);
+  }, [expiredFilter, expiredProfiles]);
+  const expiredCount = expiredProfiles.length;
 
   useEffect(() => {
     if (activeTab !== 'expired') {
@@ -121,19 +137,22 @@ const RequestsScreen = () => {
         ]}>
         {tab === 'request' ? (
           pendingReceived.length === 0 ? (
-            <Text style={styles.emptyText}>No new requests right now.</Text>
+            <Text style={styles.emptyText}>No incoming requests right now.</Text>
           ) : (
             pendingReceived.map(req => (
               <RequestListCard
                 key={req.id}
                 request={req}
+                statusText="Pending"
+                actionText="Review"
                 onPress={() => openReceivedDetail(req.id)}
+                onActionPress={() => openReceivedDetail(req.id)}
               />
             ))
           )
         ) : pendingSent.length === 0 ? (
           <Text style={styles.emptyText}>
-            No pending sent requests. Send one from a mate profile.
+            No sent requests yet. Open a mate profile to send one.
           </Text>
         ) : (
           pendingSent.map(req => (
@@ -147,87 +166,162 @@ const RequestsScreen = () => {
         )}
       </ScrollView>
 
-      <PreviousContactsDrawer contacts={previousContacts} />
     </View>
   );
 
   return (
     <View style={[styles.container, {paddingTop: insets.top + 8}]}>
-      <StatusBar backgroundColor="#F9F9F7" barStyle="dark-content" />
 
       <View style={styles.header}>
         <BackButton
           onPress={() => navigation.navigate('Home')}
           accessibilityLabel="Go to home"
         />
-        <Text style={styles.headerTitle}>Requests</Text>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle}>Requests</Text>
+          <View style={styles.headerCount}>
+            <Text style={styles.headerCountText}>
+              {pendingReceived.length + pendingSent.length} active
+            </Text>
+          </View>
+        </View>
       </View>
 
-      <View style={styles.tabRow}>
+      <View style={styles.segmentWrap}>
         <Pressable
-          style={styles.tabItem}
+          style={[
+            styles.segmentBtn,
+            (activeTab === 'request' || swipeTab === 'request') &&
+              activeTab !== 'expired' &&
+              styles.segmentBtnActive,
+          ]}
           onPress={() => goToSwipeTab('request')}>
           <Text
             style={[
-              styles.tabText,
+              styles.segmentText,
               (activeTab === 'request' || swipeTab === 'request') &&
                 activeTab !== 'expired' &&
-                styles.tabTextActive,
+                styles.segmentTextActive,
             ]}>
-            request
+            Incoming
           </Text>
-          {swipeTab === 'request' && activeTab !== 'expired' ? (
-            <View style={styles.tabLine} />
-          ) : null}
-        </Pressable>
-
-        <Pressable style={styles.tabItem} onPress={() => goToSwipeTab('sent')}>
-          <Text
-            style={[
-              styles.tabText,
-              (activeTab === 'sent' || swipeTab === 'sent') &&
-                activeTab !== 'expired' &&
-                styles.tabTextActive,
-            ]}>
-            sent
-          </Text>
-          {swipeTab === 'sent' && activeTab !== 'expired' ? (
-            <View style={[styles.tabLine, styles.tabLineSent]} />
-          ) : null}
+          <View style={styles.segmentCount}>
+            <Text style={styles.segmentCountText}>{pendingReceived.length}</Text>
+          </View>
         </Pressable>
 
         <Pressable
-          style={[styles.tabItem, styles.tabItemExpired]}
+          style={[
+            styles.segmentBtn,
+            (activeTab === 'sent' || swipeTab === 'sent') &&
+              activeTab !== 'expired' &&
+              styles.segmentBtnActive,
+          ]}
+          onPress={() => goToSwipeTab('sent')}>
+          <Text
+            style={[
+              styles.segmentText,
+              (activeTab === 'sent' || swipeTab === 'sent') &&
+                activeTab !== 'expired' &&
+                styles.segmentTextActive,
+            ]}>
+            Sent
+          </Text>
+          <View style={styles.segmentCount}>
+            <Text style={styles.segmentCountText}>{pendingSent.length}</Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          style={[
+            styles.segmentBtn,
+            activeTab === 'expired' && styles.segmentBtnExpiredActive,
+          ]}
           onPress={() => setActiveTab('expired')}>
           <Text
             style={[
-              styles.tabTextExpired,
-              activeTab === 'expired' && styles.tabTextExpiredActive,
-            ]}
-            numberOfLines={1}>
-            {expiredProfiles.length} expired profiles
+              styles.segmentText,
+              activeTab === 'expired'
+                ? styles.segmentTextExpiredActive
+                : styles.segmentTextExpired,
+            ]}>
+            Expired
           </Text>
-          {activeTab === 'expired' ? (
-            <View style={[styles.tabLine, styles.tabLineExpired]} />
-          ) : null}
+          <View
+            style={[
+              styles.segmentCount,
+              activeTab === 'expired' && styles.segmentCountExpired,
+            ]}>
+            <Text
+              style={[
+                styles.segmentCountText,
+                activeTab === 'expired' && styles.segmentCountTextExpired,
+              ]}>
+              {expiredCount}
+            </Text>
+          </View>
         </Pressable>
       </View>
 
       {activeTab === 'expired' ? (
         <View style={styles.expiredBody}>
+          <View style={styles.expiredFilterRow}>
+            <Pressable
+              style={[
+                styles.expiredFilterBtn,
+                expiredFilter === 'all' && styles.expiredFilterBtnActive,
+              ]}
+              onPress={() => setExpiredFilter('all')}>
+              <Text
+                style={[
+                  styles.expiredFilterText,
+                  expiredFilter === 'all' && styles.expiredFilterTextActive,
+                ]}>
+                All ({expiredProfiles.length})
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.expiredFilterBtn,
+                expiredFilter === 'sent' && styles.expiredFilterBtnActive,
+              ]}
+              onPress={() => setExpiredFilter('sent')}>
+              <Text
+                style={[
+                  styles.expiredFilterText,
+                  expiredFilter === 'sent' && styles.expiredFilterTextActive,
+                ]}>
+                Sent ({expiredProfiles.filter(r => r.direction === 'sent').length})
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.expiredFilterBtn,
+                expiredFilter === 'received' && styles.expiredFilterBtnActive,
+              ]}
+              onPress={() => setExpiredFilter('received')}>
+              <Text
+                style={[
+                  styles.expiredFilterText,
+                  expiredFilter === 'received' &&
+                    styles.expiredFilterTextActive,
+                ]}>
+                Received ({expiredProfiles.filter(r => r.direction === 'received').length})
+              </Text>
+            </Pressable>
+          </View>
+
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.pageScroll,
-              {paddingBottom: DRAWER_COLLAPSED + 24},
-            ]}>
-            {expiredProfiles.length === 0 ? (
+            contentContainerStyle={styles.pageScroll}>
+            {filteredExpiredProfiles.length === 0 ? (
               <Text style={styles.emptyText}>No expired profiles yet.</Text>
             ) : (
-              expiredProfiles.map(req => (
+              filteredExpiredProfiles.map(req => (
                 <RequestListCard
                   key={req.id}
                   request={req}
+                  statusText="Expired"
                   subtitle={
                     req.expiresInDays
                       ? `Expired in ${req.expiresInDays} days`
@@ -237,7 +331,6 @@ const RequestsScreen = () => {
               ))
             )}
           </ScrollView>
-          <PreviousContactsDrawer contacts={previousContacts} />
         </View>
       ) : (
         <ScrollView
@@ -252,86 +345,119 @@ const RequestsScreen = () => {
           {renderSwipePage('sent')}
         </ScrollView>
       )}
+
+      {activeTab !== 'expired' ? (
+        <PreviousContactsDrawer contacts={previousContacts} />
+      ) : null}
     </View>
   );
 };
 
 export default RequestsScreen;
 
-const styles = StyleSheet.create({
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F9F7',
+    backgroundColor: c.bg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    gap: 10,
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  backBtn: {
-    width: 40,
-  },
-  backArrow: {
-    fontSize: 28,
-    color: '#111111',
+  headerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#111111',
-    flex: 1,
-    textAlign: 'right',
+    color: c.text,
   },
-  tabRow: {
+  headerCount: {
+    backgroundColor: c.chip,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  headerCountText: {
+    color: c.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  segmentWrap: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginHorizontal: 20,
+    backgroundColor: c.bgElevated,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.border,
+    padding: 4,
     marginBottom: 12,
   },
-  tabItem: {
-    marginRight: 20,
-    alignItems: 'center',
-    maxWidth: 90,
-  },
-  tabItemExpired: {
+  segmentBtn: {
     flex: 1,
-    marginRight: 0,
-    alignItems: 'flex-end',
-    maxWidth: undefined,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 8,
   },
-  tabText: {
-    fontSize: 15,
-    color: '#AAAAAA',
-    fontWeight: '600',
-    textTransform: 'lowercase',
+  segmentBtnActive: {
+    backgroundColor: c.bg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.border,
   },
-  tabTextActive: {
-    color: '#111111',
-    fontWeight: '800',
+  segmentBtnExpiredActive: {
+    backgroundColor: c.bg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.danger,
   },
-  tabTextExpired: {
+  segmentText: {
     fontSize: 13,
-    color: '#C0392B',
+    color: c.textHint,
     fontWeight: '600',
-    textAlign: 'right',
   },
-  tabTextExpiredActive: {
+  segmentTextActive: {
+    color: c.brand,
     fontWeight: '800',
   },
-  tabLine: {
-    width: '100%',
-    height: 3,
-    backgroundColor: '#111111',
-    borderRadius: 2,
-    marginTop: 8,
+  segmentTextExpired: {
+    color: c.danger,
+    fontWeight: '700',
   },
-  tabLineSent: {
-    backgroundColor: '#C0392B',
+  segmentTextExpiredActive: {
+    color: c.danger,
+    fontWeight: '800',
   },
-  tabLineExpired: {
-    backgroundColor: '#C0392B',
+  segmentCount: {
+    minWidth: 22,
+    paddingHorizontal: 6,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: c.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentCountExpired: {
+    backgroundColor: 'rgba(192,57,43,0.12)',
+  },
+  segmentCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: c.textSecondary,
+  },
+  segmentCountTextExpired: {
+    color: c.danger,
   },
   pager: {
     flex: 1,
@@ -342,15 +468,41 @@ const styles = StyleSheet.create({
   expiredBody: {
     flex: 1,
   },
+  expiredFilterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  expiredFilterBtn: {
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: c.border,
+    backgroundColor: c.bgElevated,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  expiredFilterBtnActive: {
+    borderColor: c.brand,
+    backgroundColor: c.bg,
+  },
+  expiredFilterText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: c.textMuted,
+  },
+  expiredFilterTextActive: {
+    color: c.brand,
+  },
   pageScroll: {
     paddingHorizontal: 20,
     flexGrow: 1,
   },
   emptyText: {
     fontSize: 15,
-    color: '#777777',
+    color: c.textMuted,
     textAlign: 'center',
-    marginTop: 40,
+    marginTop: 34,
     lineHeight: 22,
   },
 });
