@@ -1,0 +1,314 @@
+TENURE — PROFILE SETUP / ONBOARDING
+Handoff document for agents and developers
+Project: d:\tenure (React Native 0.85)
+Primary screen: screens/ProfileSetupScreen.tsx (~1270 lines)
+
+================================================================================
+1. FILES TO READ FIRST (scan before any edits)
+================================================================================
+
+screens/ProfileSetupScreen.tsx
+theme/onboardingTheme.ts
+components/onboarding/OnboardingChrome.tsx
+screens/CategoryPreferenceScreen.tsx
+screens/LocationLanguageScreen.tsx
+navigation/AppNavigator.tsx
+utils/authStorage.ts
+utils/profileSetupStorage.ts
+constants/mateCategories.ts
+
+Test flow: Login → Otp → ProfileCreation → Step 1 → 2 → 3 → MainTabs
+
+
+================================================================================
+2. WHAT IS ALREADY IMPLEMENTED (current state)
+================================================================================
+
+THREE STEPS ON ONE SCREEN (ProfileSetupScreen)
+- Route name in navigator: ProfileCreation
+- Internal state: step = 1 | 2 | 3 (type OnboardingStep in theme/onboardingTheme.ts)
+- Steps advance with setStep(2) and setStep(3) — NOT navigation.navigate between steps
+- route.params?.step can open step 2 or 3 (deep link / legacy redirects)
+
+| Step | Header title           | Content                                              | CTA           |
+|------|------------------------|------------------------------------------------------|---------------|
+| 1    | Create Profile         | Photo, name, DOB, gender (2 white cards)             | Continue      |
+| 2    | Location & Language    | Country/state/district/PIN, languages, orange tip  | Continue      |
+| 3    | Category Selection     | Open-to-any, mate grid, hourly rate                  | Enter Tenure  |
+
+SHARED UI (reference mock — navy/white, NOT cinematic)
+- Background: #F4F7FB (ONBOARDING.bg)
+- White cards, navy #0B1A3D, light shadows
+- theme/onboardingTheme.ts: ONBOARDING palette, totalSteps: 3, OnboardingStep type
+- components/onboarding/OnboardingChrome.tsx:
+  - OnboardingHeader (back, title, Step X of 3, skip, progress bar)
+  - OnboardingFooter (navy pill button + white arrow circle + skip link)
+  - OnboardingPercentPill (33% / 66% / 100%)
+
+NAVIGATION / LEGACY
+- CategoryPreferenceScreen: STUB ONLY → replace('ProfileCreation', { step: 3 })
+- LocationLanguageScreen: STUB ONLY → replace('ProfileCreation', { step: 2 })
+- Finish: setProfileSetupSkipped + setOnboardingComplete + resetToMainTabs
+- Skip on steps 1–2: setProfileSetupSkipped(true) + setStep(3)
+- Skip on step 3: finishOnboarding(true)
+
+FORM DATA (useState only — NOT persisted to storage/API)
+- Photo: react-native-image-picker
+- Name, DOB (text + NativeDateTimePicker), gender (3 tiles, navy fill when selected)
+- Location: dropdowns (mock India/Karnataka/DK), PIN, language chips
+- Categories: MATE_CATEGORIES, emoji icons, budget ₹ presets (50/100/150/200)
+
+BACK BEHAVIOR
+- Step 3 → setStep(2) → setStep(1) → navigation.goBack() from step 1
+
+
+================================================================================
+3. SMOOTH FLOW — HOW IT WORKS (MUST PRESERVE)
+================================================================================
+
+Why steps 1–2–3 feel connected:
+1. ONE screen component stays mounted (ProfileSetupScreen)
+2. NO stack navigation between steps — only setStep()
+3. React swaps body content instantly (conditional render)
+4. Scroll resets to top on step change (animated: false)
+5. Header + footer stay fixed; only title, progress %, and body change
+
+What does NOT create step-to-step smoothness:
+- react-native-reanimated (not used for steps)
+- Animated / LayoutAnimation (not used)
+- navigation.navigate between steps (REMOVED — was causing step 3 to feel like new page)
+- Custom stack animation on ProfileCreation between steps
+
+| Mechanism                         | Used? | Details                                      |
+|-----------------------------------|-------|----------------------------------------------|
+| useState<OnboardingStep>(step)    | YES   | Single source of truth                       |
+| STEP_META[step]                   | YES   | title + cta per step                         |
+| setStep(2) / setStep(3)           | YES   | Advance without navigate                     |
+| scrollRef + scrollTo y:0          | YES   | animated: false on [step] change             |
+| step === 1 ? … : 2 ? … : 3        | YES   | One step UI in tree at a time                |
+| OnboardingHeader / Footer         | YES   | Outside conditional block                    |
+| onboardingStepProgress(step)      | YES   | 33% / 66% / 100% progress bar width          |
+| KeyboardAvoidingView              | YES   | iOS padding only                             |
+| os.pressed on Pressable           | YES   | opacity 0.88, scale 0.97                     |
+
+Navigator (only when entering/leaving onboarding):
+- ProfileCreation: default stack slide when FIRST arriving from OTP
+- MainTabs: animation 'fade' when onboarding completes
+- Do NOT navigate to CategoryPreference between steps in happy path
+
+
+================================================================================
+4. REQUIRED CODE PATTERN (copy this pattern for same flow)
+================================================================================
+
+--- State + scroll reset ---
+
+const scrollRef = useRef<ScrollView>(null);
+const [step, setStep] = useState<OnboardingStep>(initialStep);
+const meta = STEP_META[step];
+
+useEffect(() => {
+  const fromRoute = parseStepParam(route.params?.step);
+  if (fromRoute) setStep(fromRoute);
+}, [route.params?.step]);
+
+useEffect(() => {
+  scrollRef.current?.scrollTo({y: 0, animated: false});
+}, [step]);
+
+--- STEP_META ---
+
+const STEP_META = {
+  1: {title: 'Create Profile', cta: 'Continue'},
+  2: {title: 'Location & Language', cta: 'Continue'},
+  3: {title: 'Category Selection', cta: 'Enter Tenure'},
+} as const;
+
+--- Continue / Back / Skip ---
+
+const handleContinue = () => {
+  if (step === 1) {
+    setProfileSetupSkipped(false);
+    setStep(2);
+    return;
+  }
+  if (step === 2) {
+    setProfileSetupSkipped(false);
+    setStep(3);
+    return;
+  }
+  finishOnboarding(false);
+};
+
+const handleBack = () => {
+  if (step === 3) { setStep(2); return; }
+  if (step === 2) { setStep(1); return; }
+  navigation.goBack();
+};
+
+const handleSkip = async () => {
+  if (step < 3) {
+    await setProfileSetupSkipped(true);
+    setStep(3);
+    return;
+  }
+  finishOnboarding(true);
+};
+
+--- Layout shell ---
+
+<View style={os.root}>
+  <KeyboardAvoidingView
+    style={os.flex}
+    behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={[os.scroll, {paddingTop: insets.top + 8}]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}>
+      <OnboardingHeader
+        title={meta.title}
+        step={step}
+        onBack={handleBack}
+        onSkip={handleSkip}
+      />
+      {step === 1 ? (
+        <>/* step 1 cards */</>
+      ) : step === 2 ? (
+        <>/* step 2 cards */</>
+      ) : (
+        <>/* step 3 cards */</>
+      )}
+    </ScrollView>
+    <View style={{paddingBottom: insets.bottom + 12}}>
+      <OnboardingFooter
+        primaryLabel={meta.cta}
+        onPrimary={handleContinue}
+        loading={loading}
+        secondaryLabel="Skip for now — complete in Profile"
+        onSecondary={handleSkip}
+      />
+    </View>
+  </KeyboardAvoidingView>
+</View>
+
+--- Progress (theme/onboardingTheme.ts) ---
+
+export type OnboardingStep = 1 | 2 | 3;
+export const ONBOARDING = { /* ... */ totalSteps: 3 } as const;
+
+export const onboardingStepProgress = (step: OnboardingStep) => {
+  const pct = `${Math.round((step / ONBOARDING.totalSteps) * 100)}%`;
+  return {
+    label: `Step ${step} of ${ONBOARDING.totalSteps}`,
+    width: pct as `${number}%`,
+    pct,
+  };
+};
+
+--- Press feedback (onboardingTheme onboardingStyles) ---
+
+pressed: {
+  opacity: 0.88,
+  transform: [{scale: 0.97}],
+},
+
+
+================================================================================
+5. CHANGES REQUIRED / RECOMMENDED (for next agent)
+================================================================================
+
+PRIORITY A — Architecture
+- ProfileSetupScreen.tsx is monolithic (~1270 lines): inline SVGs, all steps, huge StyleSheet
+- REFACTOR: extract ProfileStep1, ProfileStep2, ProfileStep3 under
+  screens/profileSetup/ or components/onboarding/steps/
+- Keep: setStep pattern, OnboardingChrome, onboardingTheme
+- Check ProfileRegScreen.tsx — still navigates to LocationLanguage (may be dead path)
+- Optionally remove CategoryPreference / LocationLanguage from stack after audit
+
+PRIORITY B — UX polish
+- Optional: Reanimated fade/slide on step BODY only — still one screen, still setStep
+- Step 2 has duplicate headers (intro card + inner Location & language) — simplify
+- Orange info tip: only on step 2 (verify with design)
+- Align copy with reference mock screenshots if available
+
+PRIORITY C — Data
+- No validation before Continue (name, 18+ DOB) — add only if product requires
+- No persistence (AsyncStorage/zustand) — data lost on app kill
+- No API save of profile/categories/budget yet — only onboarding flags on finish
+
+PRIORITY D — Types
+- navigation/route typed as any — add stack param types
+
+DO NOT DO (unless user explicitly asks)
+- Cinematic design (gradients, gold/coral, glass orbs) — user reverted this
+- Merge all 3 steps into ONE long scroll on one view
+- navigation.navigate('CategoryPreference') between steps 2 and 3
+- Separate stack screen per step
+
+
+================================================================================
+6. AGENT TASK PROMPT (paste to another agent)
+================================================================================
+
+You are working on Tenure profile onboarding in d:\tenure.
+
+GOAL: Improve/maintain the 3-step Create Profile flow without breaking the smooth
+in-screen step transitions.
+
+BEFORE CODING: Read profilesetupdescription.txt and the files listed in section 1.
+Run Login → Otp → ProfileCreation through all 3 steps.
+
+RULES:
+1. All 3 steps stay in ProfileSetupScreen — use setStep(1|2|3) only, never navigate
+   between steps.
+2. Keep scrollRef + scrollTo({y:0, animated:false}) on [step].
+3. Keep OnboardingHeader + OnboardingFooter outside step conditional.
+4. Keep reference mock visual style (bg #F4F7FB, white cards, navy #0B1A3D).
+5. CategoryPreferenceScreen remains redirect stub to ProfileCreation {step:3}.
+6. Minimize diff scope. Do not commit unless asked.
+
+YOUR TASK (pick what user requested):
+[ ] Refactor into step subcomponents (preserve setStep flow)
+[ ] Add subtle Reanimated transition on step change (same screen)
+[ ] Add form validation / persistence
+[ ] Fix duplicate headers on step 2
+[ ] Other: _______________
+
+DONE WHEN:
+- Steps 1→2→3 feel identical (no stack slide between them)
+- Back/Skip/Enter Tenure still work
+- TypeScript clean (OnboardingStep = 1|2|3 everywhere)
+- You list what you changed and what you left for later
+
+
+================================================================================
+7. HISTORY (context — what was tried and reverted)
+================================================================================
+
+- Cinematic onboarding (gradients, gold, coral, OnboardingBackground) — REVERTED
+- All steps on one long scroll — REVERTED (user wanted 3 distinct steps)
+- Step 3 on separate CategoryPreference screen with stack navigate — REVERTED
+  (felt like new page; merged into ProfileSetupScreen with setStep(3))
+- Step 1 of 2 with everything on one page — changed to Step 1 of 3 with split views
+- OnboardingPercentPill step type fixed: OnboardingStep = 1|2|3 in onboardingTheme.ts
+
+
+================================================================================
+8. QUICK COMMANDS (if git is initialized)
+================================================================================
+
+cd d:\tenure
+git status
+git diff screens/ProfileSetupScreen.tsx theme/onboardingTheme.ts components/onboarding/
+
+Key files touched for onboarding:
+- screens/ProfileSetupScreen.tsx
+- theme/onboardingTheme.ts
+- components/onboarding/OnboardingChrome.tsx
+- screens/CategoryPreferenceScreen.tsx
+- screens/LocationLanguageScreen.tsx
+
+================================================================================
+END OF DOCUMENT
+================================================================================
