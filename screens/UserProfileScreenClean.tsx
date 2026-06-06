@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   Image,
   Modal,
@@ -15,7 +15,6 @@ import ProfilePhotoCropModal, {
   type CropSource,
 } from '../components/profile/ProfilePhotoCropModal';
 import {pickProfilePhotoFromLibrary} from '../utils/profilePhotoPicker';
-import Svg, {Circle, Path} from 'react-native-svg';
 import BackButton from '../components/navigation/BackButton';
 import DraggableBottomDrawer, {
   DraggableBottomDrawerRef,
@@ -35,6 +34,7 @@ import {
 import {resetToLogin} from '../utils/authNavigation';
 import {useFocusEffect} from '@react-navigation/native';
 import ProfileGallerySection from '../components/profile/ProfileGallerySection';
+import ProfileStrokeIcon from '../components/profile/ProfileStrokeIcon';
 import ProfileSocialSection, {
   type ProfileSocialItem,
 } from '../components/profile/ProfileSocialSection';
@@ -48,6 +48,7 @@ import {
   type ProfileSocialPlatformId,
 } from '../utils/profileSocialStorage';
 import {formatSocialDisplayUrl} from '../utils/mateSocialLinks';
+import {runWhenIdle} from '../hooks/runWhenIdle';
 
 type SheetType = 'category' | 'profession' | 'vehicle' | null;
 
@@ -66,22 +67,6 @@ const CATEGORY_OPTIONS = [
   'Pet Care Buddy',
   'Gaming Buddy',
 ];
-
-const CATEGORY_SYMBOLS: Record<string, string> = {
-  'Travel Buddy': 'T',
-  'Study Partner': 'S',
-  'Shopping Mate': 'S',
-  'Workout Mate': 'W',
-  'Movie Mate': 'M',
-  'Hospital Mate': 'H',
-  'Local Guide': 'L',
-  'Food Buddy': 'F',
-  'Language Partner': 'L',
-  'Project Partner': 'P',
-  'Photography Buddy': 'P',
-  'Pet Care Buddy': 'P',
-  'Gaming Buddy': 'G',
-};
 
 const DAYS = [
   {id: 'MON', label: 'M'},
@@ -106,78 +91,6 @@ const DAY_FULL: Record<string, string> = {
 const TENURE_ID = 'T-9082';
 const REVIEW_COUNT = 128;
 const RATING_VALUE = '4.9';
-
-type IconName =
-  | 'edit'
-  | 'settings'
-  | 'chevron'
-  | 'check'
-  | 'pin'
-  | 'star'
-  | 'shield'
-  | 'eye'
-  | 'plus';
-
-const StrokeIcon = ({
-  name,
-  color,
-  size = 18,
-  strokeWidth = 1.75,
-}: {
-  name: IconName;
-  color: string;
-  size?: number;
-  strokeWidth?: number;
-}) => {
-  const s = {
-    stroke: color,
-    strokeWidth,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    fill: 'none' as const,
-  };
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {name === 'edit' && <Path d="M4 16.5 15 5.5l3.5 3.5L7.5 20H4v-3.5Z M13 7.5l3.5 3.5" {...s} />}
-      {name === 'settings' && (
-        <>
-          <Circle cx={12} cy={12} r={2.8} {...s} />
-          <Path
-            d="M12 2.8v2.2M12 19v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.8 12h2.2M19 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6"
-            {...s}
-          />
-        </>
-      )}
-      {name === 'chevron' && <Path d="M9 6l6 6-6 6" {...s} />}
-      {name === 'check' && <Path d="M5 12.5l4.2 4.2L19 7" {...s} />}
-      {name === 'pin' && (
-        <>
-          <Path d="M12 20.5s6-5.1 6-10.1A6 6 0 0 0 6 10.4c0 5 6 10.1 6 10.1Z" {...s} />
-          <Circle cx={12} cy={10.2} r={2.2} {...s} />
-        </>
-      )}
-      {name === 'star' && (
-        <Path
-          d="M12 4.2l2.3 4.8 5.2.7-3.8 3.6.9 5.2-4.6-2.5-4.6 2.5.9-5.2-3.8-3.6 5.2-.7L12 4.2Z"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinejoin="round"
-          fill={color}
-        />
-      )}
-      {name === 'shield' && (
-        <Path d="M12 3.2l6.5 2.6v5c0 4.3-2.8 7.2-6.5 8.6-3.7-1.4-6.5-4.3-6.5-8.6v-5L12 3.2Z" {...s} />
-      )}
-      {name === 'eye' && (
-        <>
-          <Path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" {...s} />
-          <Circle cx={12} cy={12} r={2.6} {...s} />
-        </>
-      )}
-      {name === 'plus' && <Path d="M12 5v14M5 12h14" {...s} />}
-    </Svg>
-  );
-};
 
 function hexA(hex: string, alpha: number): string {
   const h = hex.replace('#', '');
@@ -204,6 +117,13 @@ function socialLinksToItems(links: ProfileSocialLinks): ProfileSocialItem[] {
     };
   });
 }
+
+/** Survives stack pop/remount so gallery/social don't flash empty on every open. */
+const profileMountCache = {
+  gallery: [] as string[],
+  social: {} as ProfileSocialLinks,
+  hydrated: false,
+};
 
 const UserProfileScreenClean = ({navigation, route}: any) => {
   const {showAlert, showChoice} = useAppDialog();
@@ -254,22 +174,42 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
   const [aadhaarMasked, setAadhaarMasked] = useState('');
   const [aboutEditVisible, setAboutEditVisible] = useState(false);
   const [showAvailabilityEditor, setShowAvailabilityEditor] = useState(false);
-  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [galleryImages, setGalleryImages] = useState<string[]>(
+    () => profileMountCache.gallery,
+  );
   const [galleryViewerUri, setGalleryViewerUri] = useState<string | null>(null);
   const [photoCropSource, setPhotoCropSource] = useState<CropSource | null>(null);
   const [photoCropVisible, setPhotoCropVisible] = useState(false);
-  const [socialLinks, setSocialLinks] = useState<ProfileSocialLinks>({});
+  const [socialLinks, setSocialLinks] = useState<ProfileSocialLinks>(
+    () => profileMountCache.social,
+  );
   const [socialSheetVisible, setSocialSheetVisible] = useState(false);
   const [pendingSocialPlatform, setPendingSocialPlatform] =
     useState<SocialPlatform | null>(null);
   const [socialEditUrl, setSocialEditUrl] = useState('');
+  const [showRestSections, setShowRestSections] = useState(false);
+
+  useEffect(() => {
+    const task = runWhenIdle(() => {
+      setShowRestSections(true);
+    });
+    return () => task.cancel();
+  }, []);
 
   const refreshGallery = useCallback(() => {
-    loadProfileGallery().then(setGalleryImages);
+    loadProfileGallery().then(images => {
+      profileMountCache.gallery = images;
+      profileMountCache.hydrated = true;
+      setGalleryImages(images);
+    });
   }, []);
 
   const refreshSocial = useCallback(() => {
-    loadProfileSocial().then(setSocialLinks);
+    loadProfileSocial().then(links => {
+      profileMountCache.social = links;
+      profileMountCache.hydrated = true;
+      setSocialLinks(links);
+    });
   }, []);
 
   const socialItems = useMemo(
@@ -585,7 +525,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             onPress={openSettings}
             hitSlop={8}
             style={({pressed}) => [styles.headerIconBtn, pressed && styles.pressed]}>
-            <StrokeIcon name="settings" color={colors.brand} size={18} />
+            <ProfileStrokeIcon name="settings" color={colors.brand} size={18} />
           </Pressable>
         </View>
       )}
@@ -619,7 +559,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
               accessibilityRole="button">
               <Image source={{uri: profileImage}} style={styles.passportAvatar} />
               <View style={styles.avatarEditBadge}>
-                <StrokeIcon name="edit" color="#FFFFFF" size={11} strokeWidth={2.2} />
+                <ProfileStrokeIcon name="edit" color="#FFFFFF" size={11} strokeWidth={2.2} />
               </View>
             </Pressable>
             <View style={styles.passportInfo}>
@@ -629,13 +569,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
                 </Text>
                 {aadhaarVerified ? (
                   <View style={styles.verifiedPill}>
-                    <StrokeIcon name="check" color="#FFF" size={10} strokeWidth={2.4} />
+                    <ProfileStrokeIcon name="check" color="#FFF" size={10} strokeWidth={2.4} />
                     <Text style={styles.verifiedPillText}>Verified</Text>
                   </View>
                 ) : null}
               </View>
               <View style={styles.passportLocRow}>
-                <StrokeIcon name="pin" color={colors.textMuted} size={13} />
+                <ProfileStrokeIcon name="pin" color={colors.textMuted} size={13} />
                 <Text style={styles.passportLocation}>{location}</Text>
               </View>
               <Text style={styles.passportMeta}>Tenure ID · {TENURE_ID}</Text>
@@ -660,7 +600,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             <View style={styles.passportStatSep} />
             <View style={styles.passportStat}>
               <View style={styles.ratingInline}>
-                <StrokeIcon name="star" color={colors.rating} size={14} />
+                <ProfileStrokeIcon name="star" color={colors.rating} size={14} />
                 <Text style={styles.passportStatVal}>{RATING_VALUE}</Text>
               </View>
               <Text style={styles.passportStatKey}>{REVIEW_COUNT} reviews</Text>
@@ -745,7 +685,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           <Pressable
             onPress={previewAsRequester}
             style={({pressed}) => [styles.outlineBtn, pressed && styles.pressed]}>
-            <StrokeIcon name="eye" color={colors.brand} size={16} />
+            <ProfileStrokeIcon name="eye" color={colors.brand} size={16} />
             <Text style={styles.outlineBtnText}>Preview as requester</Text>
           </Pressable>
         </View>
@@ -863,7 +803,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           <Pressable
             onPress={openLocationEditor}
             style={({pressed}) => [styles.locationRow, pressed && styles.pressed]}>
-            <StrokeIcon name="pin" color={colors.brand} size={18} />
+            <ProfileStrokeIcon name="pin" color={colors.brand} size={18} />
             <Text style={styles.locationRowText}>{location}</Text>
           </Pressable>
         </View>
@@ -938,6 +878,8 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           )}
         </View>
 
+        {showRestSections ? (
+        <>
         <ProfileGallerySection
           images={galleryImages}
           onAddPhotos={openGallery}
@@ -990,7 +932,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reviews Received</Text>
           <View style={styles.reviewRow}>
-            <StrokeIcon name="star" color={colors.rating} size={20} />
+            <ProfileStrokeIcon name="star" color={colors.rating} size={20} />
             <Text style={styles.reviewScore}>{RATING_VALUE}</Text>
             <Text style={styles.reviewMeta}>· {REVIEW_COUNT} reviews</Text>
           </View>
@@ -1035,10 +977,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           onPress={() => resetToLogin(navigation)}>
           <Text style={styles.logoutText}>Log out</Text>
         </Pressable>
+        </>
+        ) : null}
       </ScrollView>
 
+      {photoCropVisible ? (
       <ProfilePhotoCropModal
-        visible={photoCropVisible}
+        visible
         source={photoCropSource}
         onClose={() => {
           setPhotoCropVisible(false);
@@ -1046,9 +991,11 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         }}
         onComplete={uri => setProfileImage(uri)}
       />
+      ) : null}
 
+      {socialSheetVisible && pendingSocialPlatform ? (
       <SocialLinkSheet
-        visible={socialSheetVisible}
+        visible
         platform={pendingSocialPlatform}
         initialUrl={socialEditUrl}
         onClose={() => {
@@ -1058,8 +1005,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         }}
         onConfirm={handleSocialLinkConfirm}
       />
+      ) : null}
 
-      <Modal visible={galleryViewerUri != null} transparent animationType="fade">
+      {galleryViewerUri != null ? (
+      <Modal visible transparent animationType="fade">
         <Pressable
           style={[styles.galleryViewerScrim, {backgroundColor: colors.sheetScrim}]}
           onPress={() => setGalleryViewerUri(null)}>
@@ -1077,8 +1026,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           </Pressable>
         </Pressable>
       </Modal>
+      ) : null}
 
-      <Modal visible={locationModalVisible} transparent animationType="fade">
+      {locationModalVisible ? (
+      <Modal visible transparent animationType="fade">
         <Pressable
           style={[styles.overlay, {backgroundColor: colors.sheetScrim}]}
           onPress={() => setLocationModalVisible(false)}>
@@ -1105,8 +1056,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           </Pressable>
         </Pressable>
       </Modal>
+      ) : null}
 
-      <Modal visible={rateModalVisible} transparent animationType="fade">
+      {rateModalVisible ? (
+      <Modal visible transparent animationType="fade">
         <Pressable
           style={[styles.overlay, {backgroundColor: colors.sheetScrim}]}
           onPress={() => setRateModalVisible(false)}>
@@ -1131,8 +1084,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           </Pressable>
         </Pressable>
       </Modal>
+      ) : null}
 
-      <Modal visible={aadhaarModalVisible} transparent animationType="fade">
+      {aadhaarModalVisible ? (
+      <Modal visible transparent animationType="fade">
         <Pressable
           style={[styles.overlay, {backgroundColor: colors.sheetScrim}]}
           onPress={() => setAadhaarModalVisible(false)}>
@@ -1165,8 +1120,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           </Pressable>
         </Pressable>
       </Modal>
+      ) : null}
 
-      <Modal visible={aboutEditVisible} transparent animationType="fade">
+      {aboutEditVisible ? (
+      <Modal visible transparent animationType="fade">
         <Pressable
           style={[styles.overlay, {backgroundColor: colors.sheetScrim}]}
           onPress={() => setAboutEditVisible(false)}>
@@ -1203,7 +1160,9 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           </Pressable>
         </Pressable>
       </Modal>
+      ) : null}
 
+      {sheet !== null ? (
       <DraggableBottomDrawer
         ref={profileSheetRef}
         visible={sheet !== null}
@@ -1304,9 +1263,11 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             ))}
         </ScrollView>
       </DraggableBottomDrawer>
+      ) : null}
 
+      {timePickerTarget === 'start' ? (
       <NativeDateTimePicker
-        visible={timePickerTarget === 'start'}
+        visible
         mode="time"
         value={startTime}
         title="Available from"
@@ -1326,8 +1287,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           advanceTimePickerRef.current = true;
         }}
       />
+      ) : null}
+      {timePickerTarget === 'end' ? (
       <NativeDateTimePicker
-        visible={timePickerTarget === 'end'}
+        visible
         mode="time"
         value={endTime}
         title="Available until"
@@ -1339,6 +1302,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           setEndTime(normalized);
         }}
       />
+      ) : null}
     </View>
   );
 };

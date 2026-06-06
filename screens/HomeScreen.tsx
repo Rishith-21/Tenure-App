@@ -389,7 +389,7 @@ const HomeScreen = ({navigation}: any) => {
   const stackNav = () => navigation.getParent();
 
   const openProfile = useCallback(() => {
-    stackNav()?.navigate('UserProfile');
+    navigation.navigate('UserProfile');
   }, [navigation]);
 
   const openAlertsTab = useCallback(() => {
@@ -440,23 +440,21 @@ const HomeScreen = ({navigation}: any) => {
 
   const handleAccountAction = useCallback(
     (action: AccountMenuAction) => {
-      const root = stackNav();
       switch (action) {
         case 'viewProfile':
-          root?.navigate('UserProfile');
+          navigation.navigate('UserProfile');
           break;
         case 'settings':
-          root?.navigate('Settings');
+          navigation.navigate('Settings');
           break;
         case 'help':
-          root?.navigate('Settings');
-          root?.navigate('SettingsDetail', {itemId: 'help-support'});
+          navigation.navigate('SettingsDetail', {itemId: 'help-support'});
           break;
         default:
           break;
       }
     },
-    [],
+    [navigation],
   );
 
   const openActiveChat = () => {

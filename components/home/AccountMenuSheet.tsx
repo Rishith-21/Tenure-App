@@ -1,6 +1,5 @@
 import React, {
   useCallback,
-  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useRef,
@@ -18,7 +17,6 @@ import Animated, {
   cancelAnimation,
   Easing,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -35,9 +33,7 @@ const C = {
 
 /** Snappy overflow menu — Material / WhatsApp style */
 const OPEN_MS = 130;
-const CLOSE_MS = 120;
 const OPEN_EASING = Easing.out(Easing.quad);
-const CLOSE_EASING = Easing.in(Easing.quad);
 
 const PANEL_W = Math.min(280, Math.round(SCREEN_W * 0.52));
 const PANEL_PAD_V = 6;
@@ -64,6 +60,8 @@ export type AccountMenuAnchor = {
 
 export type AccountMenuSheetRef = {
   dismiss: () => void;
+  /** Skip close animation — use before stack navigation for snappier transitions. */
+  dismissInstant: () => void;
 };
 
 type Props = {
@@ -85,42 +83,20 @@ const AccountMenuSheet = React.forwardRef<AccountMenuSheetRef, Props>(
     ref,
   ) => {
     const [layerActive, setLayerActive] = useState(keepAlive);
-    const closingRef = useRef(false);
     const wasVisibleRef = useRef(false);
     const progress = useSharedValue(0);
     const onCloseRef = useRef(onClose);
     onCloseRef.current = onClose;
 
-    const finishDismiss = useCallback(() => {
-      closingRef.current = false;
+    const closeMenuNow = useCallback(() => {
+      cancelAnimation(progress);
       wasVisibleRef.current = false;
       progress.value = 0;
-      if (!keepAlive) {
-        setLayerActive(false);
-      }
       onCloseRef.current();
       onDismissed?.();
-    }, [keepAlive, onDismissed, progress]);
-
-    const runClose = useCallback(() => {
-      if (closingRef.current) {
-        return;
-      }
-      closingRef.current = true;
-      cancelAnimation(progress);
-      progress.value = withTiming(
-        0,
-        {duration: CLOSE_MS, easing: CLOSE_EASING},
-        finished => {
-          if (finished) {
-            runOnJS(finishDismiss)();
-          }
-        },
-      );
-    }, [finishDismiss, progress]);
+    }, [onDismissed, progress]);
 
     const runOpen = useCallback(() => {
-      closingRef.current = false;
       setLayerActive(true);
       cancelAnimation(progress);
       progress.value = withTiming(1, {
@@ -129,25 +105,36 @@ const AccountMenuSheet = React.forwardRef<AccountMenuSheetRef, Props>(
       });
     }, [progress]);
 
-    useImperativeHandle(ref, () => ({dismiss: runClose}), [runClose]);
+    const dismissInstant = useCallback(() => {
+      if (!layerActive) {
+        return;
+      }
+      closeMenuNow();
+    }, [closeMenuNow, layerActive]);
+
+    useImperativeHandle(
+      ref,
+      () => ({dismiss: dismissInstant, dismissInstant}),
+      [dismissInstant],
+    );
 
     useLayoutEffect(() => {
       if (visible && anchor) {
         if (!wasVisibleRef.current) {
           runOpen();
         }
-      } else if (wasVisibleRef.current && layerActive && !closingRef.current) {
-        runClose();
+      } else if (wasVisibleRef.current && layerActive) {
+        closeMenuNow();
       }
       wasVisibleRef.current = Boolean(visible && anchor);
-    }, [visible, anchor, layerActive, runOpen, runClose]);
+    }, [visible, anchor, layerActive, runOpen, closeMenuNow]);
 
     const requestClose = useCallback(() => {
-      if (!layerActive || closingRef.current) {
+      if (!layerActive) {
         return;
       }
-      runClose();
-    }, [layerActive, runClose]);
+      closeMenuNow();
+    }, [closeMenuNow, layerActive]);
 
     const scrimStyle = useAnimatedStyle(() => ({
       opacity: interpolate(progress.value, [0, 1], [0, 1]),
@@ -166,17 +153,13 @@ const AccountMenuSheet = React.forwardRef<AccountMenuSheetRef, Props>(
 
     const handleSelect = useCallback(
       (action: AccountMenuAction) => {
-        if (closingRef.current) {
-          return;
-        }
+        closeMenuNow();
         onSelect(action);
-        runClose();
       },
-      [onSelect, runClose],
+      [closeMenuNow, onSelect],
     );
 
-    const interactive =
-      (visible || closingRef.current) && layerActive && anchor != null;
+    const interactive = visible && layerActive && anchor != null;
 
     if (!keepAlive && !layerActive) {
       return null;
@@ -188,7 +171,7 @@ const AccountMenuSheet = React.forwardRef<AccountMenuSheetRef, Props>(
 
     return (
       <View
-        style={styles.host}
+        style={[styles.host, !interactive && styles.hostIdle]}
         pointerEvents={interactive ? 'box-none' : 'none'}
         accessibilityViewIsModal={visible}>
         <Animated.View style={[styles.scrim, scrimStyle]} pointerEvents="auto">
@@ -207,7 +190,7 @@ const AccountMenuSheet = React.forwardRef<AccountMenuSheetRef, Props>(
             {top: anchor.top, right: anchor.right, width: PANEL_W},
             popupStyle,
           ]}>
-          <View style={styles.panelSurface}>
+          <View style={styles.panelSurface} pointerEvents="auto">
             {MENU_ITEMS.map(item => (
               <Pressable
                 key={item.id}
@@ -239,6 +222,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1200,
     elevation: 1200,
+  },
+  hostIdle: {
+    zIndex: -1,
+    elevation: 0,
   },
   scrim: {
     position: 'absolute',

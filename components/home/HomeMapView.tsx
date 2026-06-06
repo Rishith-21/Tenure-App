@@ -150,7 +150,7 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       overflow: 'hidden',
     },
     map: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
     },
     loading: {
       position: 'absolute',

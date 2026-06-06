@@ -64,7 +64,6 @@ const AppNavigator = () => {
           options={{
             gestureEnabled: false,
             animation: 'fade',
-            freezeOnBlur: false,
           }}
         />
         <Stack.Screen
@@ -82,6 +81,11 @@ const AppNavigator = () => {
         <Stack.Screen
           name="UserProfile"
           component={UserProfileScreen}
+          options={{
+            animation: 'slide_from_right',
+            animationDuration: 220,
+            contentStyle: {backgroundColor: '#F6F8FA'},
+          }}
         />
         <Stack.Screen
           name="Settings"
