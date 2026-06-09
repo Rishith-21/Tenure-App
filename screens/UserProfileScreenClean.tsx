@@ -49,6 +49,7 @@ import {
 } from '../utils/profileSocialStorage';
 import {formatSocialDisplayUrl} from '../utils/mateSocialLinks';
 import {runWhenIdle} from '../hooks/runWhenIdle';
+import {fetchProfile, upsertProfile} from '../utils/api';
 
 type SheetType = 'category' | 'profession' | 'vehicle' | null;
 
@@ -132,6 +133,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
   const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const embeddedTab = route.params?.embeddedTab === true;
 
+  const [backendProfile, setBackendProfile] = useState<any>(null);
   const [location, setLocation] = useState('Mitte, Berlin');
   const [profileName, setProfileName] = useState('Julian Voss');
   const [profileImage, setProfileImage] = useState(
@@ -196,6 +198,61 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     return () => task.cancel();
   }, []);
 
+  const loadBackendProfile = useCallback(async () => {
+    try {
+      const fetched = await fetchProfile();
+      if (fetched) {
+        setBackendProfile(fetched);
+        if (fetched.fullName) setProfileName(fetched.fullName);
+        if (fetched.profilePhoto) setProfileImage(fetched.profilePhoto);
+        if (fetched.hourlyRate != null) setHourlyRate(String(fetched.hourlyRate));
+        if (fetched.district) setLocation(`${fetched.district}, ${fetched.state}`);
+        if (fetched.categories && fetched.categories.length > 0) setCategories(fetched.categories);
+      }
+    } catch (err) {
+      console.log('Error loading profile in UserProfileScreenClean:', err);
+    }
+  }, []);
+
+  const saveProfileChange = useCallback(async (updates: {
+    fullName?: string;
+    profilePhoto?: string;
+    hourlyRate?: number;
+    location?: string;
+    categories?: string[];
+  }) => {
+    try {
+      const currentProfile = backendProfile || {};
+      
+      let districtVal = currentProfile.district || 'Bangalore';
+      let stateVal = currentProfile.state || 'Karnataka';
+      if (updates.location) {
+        const parts = updates.location.split(',').map(p => p.trim());
+        if (parts.length > 0) districtVal = parts[0];
+        if (parts.length > 1) stateVal = parts[1];
+      }
+
+      const payload = {
+        fullName: updates.fullName !== undefined ? updates.fullName : (currentProfile.fullName || profileName),
+        profilePhoto: updates.profilePhoto !== undefined ? updates.profilePhoto : (currentProfile.profilePhoto || profileImage),
+        hourlyRate: updates.hourlyRate !== undefined ? updates.hourlyRate : parseFloat(hourlyRate || '45'),
+        district: districtVal,
+        state: stateVal,
+        dob: currentProfile.dob || new Date('2000-01-01').toISOString(),
+        gender: currentProfile.gender || 'Other',
+        country: currentProfile.country || 'India',
+        pinCode: currentProfile.pinCode || '560001',
+        languages: currentProfile.languages && currentProfile.languages.length > 0 ? currentProfile.languages : ['English'],
+        categories: updates.categories !== undefined ? updates.categories : (currentProfile.categories && currentProfile.categories.length > 0 ? currentProfile.categories : categories),
+      };
+
+      const saved = await upsertProfile(payload);
+      setBackendProfile(saved);
+    } catch (err) {
+      console.log('Error saving profile update to backend:', err);
+    }
+  }, [backendProfile, profileName, profileImage, hourlyRate, categories]);
+
   const refreshGallery = useCallback(() => {
     loadProfileGallery().then(images => {
       profileMountCache.gallery = images;
@@ -226,9 +283,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
 
   useFocusEffect(
     useCallback(() => {
+      loadBackendProfile();
       refreshGallery();
       refreshSocial();
-    }, [refreshGallery, refreshSocial]),
+    }, [loadBackendProfile, refreshGallery, refreshSocial]),
   );
 
   const persistSocial = useCallback(async (next: ProfileSocialLinks) => {
@@ -432,6 +490,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     const cleanRate = editRate.trim();
     if (cleanRate) {
       setHourlyRate(cleanRate);
+      saveProfileChange({ hourlyRate: parseFloat(cleanRate) || 0 });
     }
     setRateModalVisible(false);
   };
@@ -463,7 +522,11 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     const items = pendingSheetItems;
     profileSheetRef.current?.dismiss(() => {
       if (type === 'category') {
-        setCategories(prev => [...prev, ...items]);
+        setCategories(prev => {
+          const next = [...prev, ...items];
+          saveProfileChange({ categories: next });
+          return next;
+        });
       } else if (type === 'profession') {
         setProfessions(prev => [...prev, ...items]);
       } else {
@@ -477,7 +540,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     value: string,
     setter: React.Dispatch<React.SetStateAction<string[]>>,
   ) => {
-    setter(prev => prev.filter(item => item !== value));
+    setter(prev => {
+      const next = prev.filter(item => item !== value);
+      if (setter === setCategories) {
+        saveProfileChange({ categories: next });
+      }
+      return next;
+    });
   };
 
   const handleAadhaarVerify = () => {
@@ -989,7 +1058,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           setPhotoCropVisible(false);
           setPhotoCropSource(null);
         }}
-        onComplete={uri => setProfileImage(uri)}
+        onComplete={uri => {
+          setProfileImage(uri);
+          saveProfileChange({ profilePhoto: uri });
+        }}
       />
       ) : null}
 
@@ -1048,6 +1120,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
                 const cleaned = locationInput.trim();
                 if (cleaned) {
                   setLocation(cleaned);
+                  saveProfileChange({ location: cleaned });
                 }
                 setLocationModalVisible(false);
               }}>

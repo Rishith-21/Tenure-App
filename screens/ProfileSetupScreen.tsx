@@ -19,6 +19,7 @@ import NativeDateTimePicker from '../components/ui/NativeDateTimePicker';
 import {setProfileSetupSkipped} from '../utils/profileSetupStorage';
 import {setOnboardingComplete} from '../utils/authStorage';
 import {resetToMainTabs} from '../navigation/navigationActions';
+import {upsertProfile} from '../utils/api';
 import CategoryStepPanel from '../components/onboarding/CategoryStepPanel';
 import {
   OnboardingFooter,
@@ -277,8 +278,29 @@ const ProfileSetupScreen = ({navigation, route}: any) => {
   const finishOnboarding = async (skipped: boolean) => {
     setLoading(true);
     try {
-      if (skipped) await setProfileSetupSkipped(true);
-      else await setProfileSetupSkipped(false);
+      if (skipped) {
+        await setProfileSetupSkipped(true);
+      } else {
+        await setProfileSetupSkipped(false);
+        const payload = {
+          fullName: name.trim() || 'Anonymous',
+          dob: dobDate ? dobDate.toISOString() : new Date('2000-01-01').toISOString(),
+          gender: selectedGender || 'Other',
+          country: country || 'India',
+          state: stateVal || 'Karnataka',
+          district: district || 'Bangalore',
+          pinCode: zipCode || '560001',
+          languages: languages.length > 0 ? languages : ['English'],
+          categories: [...selectedCategoryIds, ...customCategories],
+          hourlyRate: budget.trim() ? parseFloat(budget) : 50,
+          profilePhoto: profileImage,
+        };
+        await upsertProfile(payload);
+      }
+      await setOnboardingComplete();
+      resetToMainTabs(navigation);
+    } catch (err) {
+      console.log('Error saving profile to backend:', err);
       await setOnboardingComplete();
       resetToMainTabs(navigation);
     } finally {

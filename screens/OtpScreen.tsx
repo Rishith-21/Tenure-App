@@ -7,7 +7,8 @@ import {
   Pressable,
   Keyboard,
 } from 'react-native';
-import {setLoggedIn} from '../utils/authStorage';
+import {setLoggedIn, setToken} from '../utils/authStorage';
+import {loginOrRegister} from '../utils/api';
 import {isAccountDeactivated, setAccountDeactivated} from '../utils/accountStatusStorage';
 import {appDialog} from '../context/dialogRef';
 import {resetToOnboardingProfile} from '../navigation/navigationActions';
@@ -71,6 +72,12 @@ const OtpScreen = ({navigation, route}: any) => {
   };
 
   const finishLogin = async () => {
+    try {
+      const token = await loginOrRegister(phoneNumber || '9999999999');
+      await setToken(token);
+    } catch (err) {
+      console.log('Backend authentication failed:', err);
+    }
     await setLoggedIn(phoneNumber || '9999999999');
     resetToOnboardingProfile(navigation);
   };

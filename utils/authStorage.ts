@@ -4,6 +4,7 @@ const KEYS = {
   LOGGED_IN: '@tenure/logged_in',
   ONBOARDING_DONE: '@tenure/onboarding_done',
   PHONE: '@tenure/phone',
+  TOKEN: '@tenure/token',
 } as const;
 
 export type AuthRoute = 'Login' | 'ProfileCreation' | 'MainTabs';
@@ -19,11 +20,20 @@ export async function setOnboardingComplete(): Promise<void> {
   await AsyncStorage.setItem(KEYS.ONBOARDING_DONE, '1');
 }
 
+export async function setToken(token: string): Promise<void> {
+  await AsyncStorage.setItem(KEYS.TOKEN, token);
+}
+
+export async function getToken(): Promise<string | null> {
+  return AsyncStorage.getItem(KEYS.TOKEN);
+}
+
 export async function clearAuth(): Promise<void> {
   await AsyncStorage.multiRemove([
     KEYS.LOGGED_IN,
     KEYS.ONBOARDING_DONE,
     KEYS.PHONE,
+    KEYS.TOKEN,
   ]);
 }
 

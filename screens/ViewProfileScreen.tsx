@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useMemo, useState, useCallback} from 'react';
 import {
   Image,
   Pressable,
@@ -8,10 +8,12 @@ import {
   View,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useFocusEffect} from '@react-navigation/native';
 import Svg, {Circle, Path} from 'react-native-svg';
 import BackButton from '../components/navigation/BackButton';
 import {goBackSafe} from '../navigation/navigationActions';
 import {useTheme} from '../context/ThemeContext';
+import {fetchProfile} from '../utils/api';
 import type {AppColors} from '../theme/palettes';
 import type {DesignTokens} from '../theme/tokens';
 
@@ -429,7 +431,38 @@ const ViewProfileScreen = ({navigation}: any) => {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
 
-  const u = CURRENT_USER;
+  const [profile, setProfile] = useState(CURRENT_USER);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const loadData = async () => {
+        try {
+          const fetched = await fetchProfile();
+          if (fetched && active) {
+            setProfile(prev => ({
+              ...prev,
+              name: fetched.fullName || prev.name,
+              location: fetched.district ? `${fetched.district}, ${fetched.state}` : prev.location,
+              tenureId: fetched.tenureId || prev.tenureId,
+              avatar: fetched.profilePhoto || prev.avatar,
+              rate: fetched.hourlyRate != null ? String(fetched.hourlyRate) : prev.rate,
+              categories: fetched.categories && fetched.categories.length > 0 ? fetched.categories : prev.categories,
+              languages: fetched.languages && fetched.languages.length > 0 ? fetched.languages : prev.languages,
+            }));
+          }
+        } catch (err) {
+          console.log('Failed to fetch profile in ViewProfileScreen:', err);
+        }
+      };
+      loadData();
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
+  const u = profile;
 
   /* ── Navigation handlers (reuse existing routes) ──────── */
   const goEditProfile = () => navigation.navigate('UserProfile');
