@@ -74,6 +74,11 @@ export type BackendProfile = {
   comfortNotWith: string | null;
   aadhaarVerified: boolean;
   aadhaarMasked: string | null;
+  gallery: string[];
+  instagram: string | null;
+  facebook: string | null;
+  youtube: string | null;
+  website: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -109,6 +114,11 @@ export type ProfileUpsertInput = {
   comfortNotWith?: string | null;
   aadhaarVerified?: boolean;
   aadhaarMasked?: string | null;
+  gallery?: string[];
+  instagram?: string | null;
+  facebook?: string | null;
+  youtube?: string | null;
+  website?: string | null;
 };
 
 export async function fetchCurrentUser(): Promise<BackendUser | null> {
@@ -229,6 +239,11 @@ export type DiscoverMateApi = {
   languages: string[];
   about: string | null;
   aadhaarVerified: boolean;
+  gallery: string[];
+  instagram: string | null;
+  facebook: string | null;
+  youtube: string | null;
+  website: string | null;
 };
 
 export type DiscoverSearchParams = {
@@ -451,4 +466,44 @@ export async function updateMateRequestStatus(
 
   const data = await response.json();
   return data?.data?.request;
+}
+
+export async function deactivateAccount(): Promise<void> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/users/deactivate-me`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to deactivate account');
+  }
+}
+
+export async function deleteAccount(): Promise<void> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/users/delete-me`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete account');
+  }
 }

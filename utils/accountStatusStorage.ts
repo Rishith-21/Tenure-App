@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deactivateAccount, deleteAccount } from './api';
+import { clearAuth } from './authStorage';
 
 const DEACTIVATED_KEY = '@tenure/account_deactivated';
 
@@ -12,4 +14,16 @@ export async function setAccountDeactivated(active: boolean): Promise<void> {
   } else {
     await AsyncStorage.removeItem(DEACTIVATED_KEY);
   }
+}
+
+export async function deactivateAccountOnServer(): Promise<void> {
+  await deactivateAccount();
+  await AsyncStorage.setItem(DEACTIVATED_KEY, '1');
+  await clearAuth();
+}
+
+export async function deleteAccountOnServer(): Promise<void> {
+  await deleteAccount();
+  await AsyncStorage.removeItem(DEACTIVATED_KEY);
+  await clearAuth();
 }

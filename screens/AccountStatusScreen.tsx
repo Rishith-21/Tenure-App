@@ -6,7 +6,10 @@ import BackButton from '../components/navigation/BackButton';
 import SettingsRow from '../components/settings/SettingsRow';
 import {appDialog} from '../context/dialogRef';
 import {goBackSafe} from '../navigation/navigationActions';
-import {setAccountDeactivated} from '../utils/accountStatusStorage';
+import {
+  deactivateAccountOnServer,
+  deleteAccountOnServer,
+} from '../utils/accountStatusStorage';
 import {resetToLogin} from '../utils/authNavigation';
 
 type Nav = NativeStackNavigationProp<{
@@ -32,8 +35,13 @@ const AccountStatusScreen = ({navigation}: {navigation: Nav}) => {
         }
         setBusy(true);
         try {
-          await setAccountDeactivated(true);
+          await deactivateAccountOnServer();
           await resetToLogin(navigation);
+        } catch (error: any) {
+          appDialog.showAlert({
+            title: 'Deactivation Failed',
+            message: error?.message || 'Could not deactivate account. Please try again.',
+          });
         } finally {
           setBusy(false);
         }
@@ -55,8 +63,13 @@ const AccountStatusScreen = ({navigation}: {navigation: Nav}) => {
         }
         setBusy(true);
         try {
-          await setAccountDeactivated(false);
+          await deleteAccountOnServer();
           await resetToLogin(navigation);
+        } catch (error: any) {
+          appDialog.showAlert({
+            title: 'Deletion Failed',
+            message: error?.message || 'Could not delete account. Please try again.',
+          });
         } finally {
           setBusy(false);
         }
