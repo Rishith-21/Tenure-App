@@ -1,12 +1,29 @@
 import {create} from 'zustand';
 import {MateRequest, MateRequestStatus} from '../types/mateRequest';
 import {deriveMateUsername} from '../utils/requestLabels';
+import {dateToMateString, parseMateDateTime} from '../utils/meetTime';
 import {
   sendMateRequest,
   fetchMateRequests,
   updateMateRequestStatus,
   ApiMateRequest,
 } from '../utils/api';
+
+/** Mate display string ("20-06-2026 4:00 pm") → ISO for the backend. */
+const mateStringToIso = (value: string): string => {
+  const parsed = parseMateDateTime(value);
+  if (parsed) {
+    return parsed.toISOString();
+  }
+  const fallback = new Date(value);
+  return Number.isNaN(fallback.getTime()) ? value : fallback.toISOString();
+};
+
+/** Backend ISO string → mate display string for the UI. */
+const isoToMateString = (value: string): string => {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : dateToMateString(d);
+};
 
 type AddSentPayload = {
   mateUserId: string;
@@ -45,8 +62,8 @@ const mapApiToFrontend = (req: ApiMateRequest): MateRequest => ({
   categoryId: req.categoryId,
   categoryLabel: req.categoryLabel,
   meetLocation: req.meetLocation,
-  fromDateTime: req.fromDateTime,
-  toDateTime: req.toDateTime,
+  fromDateTime: isoToMateString(req.fromDateTime),
+  toDateTime: isoToMateString(req.toDateTime),
   message: req.message,
   status: req.status,
   sentAt: req.sentAt,
@@ -87,8 +104,8 @@ export const useMateRequestsStore = create<MateRequestsState>((set, get) => ({
       categoryId: payload.categoryId,
       categoryLabel: payload.categoryLabel,
       meetLocation: payload.meetLocation,
-      fromDateTime: payload.fromDateTime,
-      toDateTime: payload.toDateTime,
+      fromDateTime: mateStringToIso(payload.fromDateTime),
+      toDateTime: mateStringToIso(payload.toDateTime),
     });
     const request = mapApiToFrontend(apiReq);
     set(state => ({sent: [request, ...state.sent]}));
