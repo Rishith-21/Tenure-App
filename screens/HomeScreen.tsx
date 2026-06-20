@@ -47,7 +47,9 @@ import {
   SEARCH_DISTRICTS,
 } from '../components/search/searchFilterConfig';
 import type {SearchFilters} from '../components/search/searchFilterConfig';
+import {useFocusEffect} from '@react-navigation/native';
 import {useMateRequestsStore} from '../store/mateRequestsStore';
+import {fetchProfile} from '../utils/api';
 import {MAX_TENURE_SECONDS, useActiveSessionStore} from '../store/activeSessionStore';
 import {useElapsedTimer} from '../hooks/useElapsedTimer';
 import {formatMeetRange} from '../utils/meetTime';
@@ -188,7 +190,12 @@ const MeetDeckCard = ({
   );
 };
 
-const HOME_TENURE_ID = 'T-9082';
+const getTimeGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+};
 
 const HomeScreen = ({navigation}: any) => {
   usePreventAuthBackOnHome();
@@ -262,6 +269,24 @@ const HomeScreen = ({navigation}: any) => {
   const [deckExpandedVisible, setDeckExpandedVisible] = useState(true);
   const collapse       = useSharedValue(0); // 0 = expanded, 1 = capsule
   const [allDatesOpen, setAllDatesOpen] = useState(false);
+  const [headerName, setHeaderName] = useState('');
+  const [headerAvatar, setHeaderAvatar] = useState<string | null>(null);
+  const [headerTenureId, setHeaderTenureId] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      fetchProfile().then(profile => {
+        if (!active || !profile) return;
+        if (profile.fullName) setHeaderName(profile.fullName);
+        if (profile.profilePhoto) setHeaderAvatar(profile.profilePhoto);
+        if (profile.tenureId) setHeaderTenureId(profile.tenureId);
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   /* ── Stores ───────────────────────────────────────────── */
   const sent          = useMateRequestsStore(s => s.sent);
@@ -693,18 +718,21 @@ const HomeScreen = ({navigation}: any) => {
             onPress={openProfile}
             accessibilityRole="button"
             accessibilityLabel="Open profile">
-            <Image
-              source={{
-                uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80',
-              }}
-              style={styles.identityAvatar}
-            />
+            {headerAvatar ? (
+              <Image source={{uri: headerAvatar}} style={styles.identityAvatar} />
+            ) : (
+              <View style={[styles.identityAvatar, styles.identityAvatarPlaceholder]}>
+                <Text style={styles.identityAvatarInitial}>
+                  {(headerName || 'Y').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View style={styles.identityText}>
               <Text style={styles.identityGreeting} numberOfLines={1}>
-                Good morning
+                {getTimeGreeting()}
               </Text>
               <Text style={styles.identityName} numberOfLines={1}>
-                Arjun
+                {headerName || 'Your profile'}
               </Text>
               <Pressable
                 onPress={
@@ -715,9 +743,7 @@ const HomeScreen = ({navigation}: any) => {
                 accessibilityLabel={`Current location: ${userLocation.locationLine}`}>
                 <Text style={styles.identityLocation} numberOfLines={1}>
                   {userLocation.locationLine}
-                  {userLocation.placeLabel && !userLocation.permissionDenied
-                    ? ` · ${HOME_TENURE_ID}`
-                    : ''}
+                  {headerTenureId ? ` · ${headerTenureId}` : ''}
                 </Text>
               </Pressable>
             </View>
@@ -728,8 +754,7 @@ const HomeScreen = ({navigation}: any) => {
             <View style={styles.iconShadow}>
               <HeaderIconButton
                 onPress={openAlertsTab}
-                accessibilityLabel="Notifications"
-                showBadge>
+                accessibilityLabel="Notifications">
                 <BellIcon />
               </HeaderIconButton>
             </View>
@@ -886,10 +911,10 @@ const HomeScreen = ({navigation}: any) => {
           </>
         ) : (
           <View style={styles.emptyDeck}>
-            <Text style={styles.emptyTitle}>No meet dates yet</Text>
+            <Text style={styles.emptyTitle}>Your map is clear</Text>
             <Text style={styles.emptyBody}>
-              Search for an activity mate and send a request — confirmed meets pin to
-              the map here.
+              You're among the first here. When you send or receive a request and it
+              gets confirmed, your meet dates will pin to this map.
             </Text>
             <Pressable
               style={({pressed}) => [styles.emptyAction, pressed && {opacity: 0.85}]}
@@ -976,6 +1001,16 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     backgroundColor: K.surface,
+  },
+  identityAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: K.accentSoft,
+  },
+  identityAvatarInitial: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: K.accent,
   },
   identityText: {minWidth: 0, flexShrink: 1},
   identityGreeting: {fontSize: 11, fontWeight: '600', color: K.textMuted},

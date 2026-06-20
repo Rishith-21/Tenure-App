@@ -49,7 +49,9 @@ import {
 } from '../utils/profileSocialStorage';
 import {formatSocialDisplayUrl} from '../utils/mateSocialLinks';
 import {runWhenIdle} from '../hooks/runWhenIdle';
-import {fetchProfile, upsertProfile} from '../utils/api';
+import {fetchProfile, upsertProfile, type BackendProfile} from '../utils/api';
+import {buildProfileUpsertPayload} from '../utils/profileApiMapper';
+import {calculateAgeFromDob, formatAgeYears} from '../utils/ageFromDob';
 
 type SheetType = 'category' | 'profession' | 'vehicle' | null;
 
@@ -88,10 +90,6 @@ const DAY_FULL: Record<string, string> = {
   SAT: 'Sat',
   SUN: 'Sun',
 };
-
-const TENURE_ID = 'T-9082';
-const REVIEW_COUNT = 128;
-const RATING_VALUE = '4.9';
 
 function hexA(hex: string, alpha: number): string {
   const h = hex.replace('#', '');
@@ -133,20 +131,18 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
   const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const embeddedTab = route.params?.embeddedTab === true;
 
-  const [backendProfile, setBackendProfile] = useState<any>(null);
-  const [location, setLocation] = useState('Mitte, Berlin');
-  const [profileName, setProfileName] = useState('Julian Voss');
-  const [profileImage, setProfileImage] = useState(
-    'https://i.pravatar.cc/120?img=12',
-  );
-  const [hourlyRate, setHourlyRate] = useState('45');
+  const [backendProfile, setBackendProfile] = useState<BackendProfile | null>(null);
+  const [location, setLocation] = useState('');
+  const [profileName, setProfileName] = useState('');
+  const [profileImage, setProfileImage] = useState('');
+  const [hourlyRate, setHourlyRate] = useState('');
   const [about, setAbout] = useState('');
   const [aboutDraft, setAboutDraft] = useState('');
   const [aboutSaved, setAboutSaved] = useState(false);
-  const [categories, setCategories] = useState<string[]>(['Travel Buddy']);
+  const [categories, setCategories] = useState<string[]>([]);
   const [professions, setProfessions] = useState<string[]>([]);
   const [vehicles, setVehicles] = useState<string[]>([]);
-  const [days, setDays] = useState<string[]>(['MON', 'WED', 'THU', 'FRI']);
+  const [days, setDays] = useState<string[]>([]);
   const [startTime, setStartTime] = useState(() => {
     const d = new Date();
     d.setHours(10, 0, 0, 0);
@@ -198,6 +194,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     return () => task.cancel();
   }, []);
 
+  const formatTime = (value: Date) =>
+    value.toLocaleTimeString('en-IN', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
   const loadBackendProfile = useCallback(async () => {
     try {
       const fetched = await fetchProfile();
@@ -207,51 +210,103 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         if (fetched.profilePhoto) setProfileImage(fetched.profilePhoto);
         if (fetched.hourlyRate != null) setHourlyRate(String(fetched.hourlyRate));
         if (fetched.district) setLocation(`${fetched.district}, ${fetched.state}`);
-        if (fetched.categories && fetched.categories.length > 0) setCategories(fetched.categories);
+        if (fetched.categories) setCategories(fetched.categories);
+        if (fetched.about) setAbout(fetched.about);
+        if (fetched.professions) setProfessions(fetched.professions);
+        if (fetched.vehicles) setVehicles(fetched.vehicles);
+        if (fetched.availableDays) setDays(fetched.availableDays);
+        if (fetched.aadhaarVerified) setAadhaarVerified(true);
+        if (fetched.aadhaarMasked) setAadhaarMasked(fetched.aadhaarMasked);
       }
     } catch (err) {
       console.log('Error loading profile in UserProfileScreenClean:', err);
     }
   }, []);
 
-  const saveProfileChange = useCallback(async (updates: {
-    fullName?: string;
-    profilePhoto?: string;
-    hourlyRate?: number;
-    location?: string;
-    categories?: string[];
-  }) => {
-    try {
-      const currentProfile = backendProfile || {};
-      
-      let districtVal = currentProfile.district || 'Bangalore';
-      let stateVal = currentProfile.state || 'Karnataka';
-      if (updates.location) {
-        const parts = updates.location.split(',').map(p => p.trim());
-        if (parts.length > 0) districtVal = parts[0];
-        if (parts.length > 1) stateVal = parts[1];
+  const persistProfile = useCallback(
+    async (overrides?: Partial<{
+      profileName: string;
+      profileImage: string;
+      hourlyRate: string;
+      location: string;
+      categories: string[];
+      about: string;
+      professions: string[];
+      vehicles: string[];
+      days: string[];
+      timeRange: string;
+      aadhaarVerified: boolean;
+      aadhaarMasked: string;
+    }>) => {
+      try {
+        const payload = buildProfileUpsertPayload(
+          {
+            profileName: overrides?.profileName ?? profileName,
+            profileImage: overrides?.profileImage ?? profileImage,
+            hourlyRate: overrides?.hourlyRate ?? hourlyRate,
+            location: overrides?.location ?? location,
+            categories: overrides?.categories ?? categories,
+            about: overrides?.about ?? about,
+            vibes: [],
+            professions: overrides?.professions ?? professions,
+            vehicles: overrides?.vehicles ?? vehicles,
+            interests: [],
+            days: overrides?.days ?? days,
+            timeRange:
+              overrides?.timeRange ??
+              `${formatTime(startTime)} – ${formatTime(endTime)}`,
+            bestTime: '',
+            aadhaarVerified: overrides?.aadhaarVerified ?? aadhaarVerified,
+            aadhaarMasked: overrides?.aadhaarMasked ?? aadhaarMasked,
+            comfort: null,
+          },
+          backendProfile,
+        );
+        const saved = await upsertProfile(payload);
+        setBackendProfile(saved);
+      } catch (err) {
+        console.log('Error saving profile update to backend:', err);
       }
+    },
+    [
+      about,
+      aadhaarMasked,
+      aadhaarVerified,
+      backendProfile,
+      categories,
+      days,
+      endTime,
+      hourlyRate,
+      location,
+      profileImage,
+      profileName,
+      professions,
+      startTime,
+      vehicles,
+    ],
+  );
 
-      const payload = {
-        fullName: updates.fullName !== undefined ? updates.fullName : (currentProfile.fullName || profileName),
-        profilePhoto: updates.profilePhoto !== undefined ? updates.profilePhoto : (currentProfile.profilePhoto || profileImage),
-        hourlyRate: updates.hourlyRate !== undefined ? updates.hourlyRate : parseFloat(hourlyRate || '45'),
-        district: districtVal,
-        state: stateVal,
-        dob: currentProfile.dob || new Date('2000-01-01').toISOString(),
-        gender: currentProfile.gender || 'Other',
-        country: currentProfile.country || 'India',
-        pinCode: currentProfile.pinCode || '560001',
-        languages: currentProfile.languages && currentProfile.languages.length > 0 ? currentProfile.languages : ['English'],
-        categories: updates.categories !== undefined ? updates.categories : (currentProfile.categories && currentProfile.categories.length > 0 ? currentProfile.categories : categories),
-      };
-
-      const saved = await upsertProfile(payload);
-      setBackendProfile(saved);
-    } catch (err) {
-      console.log('Error saving profile update to backend:', err);
-    }
-  }, [backendProfile, profileName, profileImage, hourlyRate, categories]);
+  const saveProfileChange = useCallback(
+    async (updates: {
+      fullName?: string;
+      profilePhoto?: string;
+      hourlyRate?: number;
+      location?: string;
+      categories?: string[];
+    }) => {
+      await persistProfile({
+        profileName: updates.fullName,
+        profileImage: updates.profilePhoto,
+        hourlyRate:
+          updates.hourlyRate !== undefined
+            ? String(updates.hourlyRate)
+            : undefined,
+        location: updates.location,
+        categories: updates.categories,
+      });
+    },
+    [persistProfile],
+  );
 
   const refreshGallery = useCallback(() => {
     loadProfileGallery().then(images => {
@@ -371,6 +426,17 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
       ? categories.slice(0, 3).join(' · ')
       : 'Add the company you offer';
 
+  const displayTenureId = backendProfile?.tenureId || 'Not assigned';
+  const ratingDisplay = 'New';
+  const reviewCount = 0;
+  const displayName = profileName || 'Add your name';
+  const displayAge = useMemo(
+    () => formatAgeYears(calculateAgeFromDob(backendProfile?.dob ?? null)),
+    [backendProfile?.dob],
+  );
+  const displayLocation = location || 'Add location';
+  const displayRate = hourlyRate || '—';
+
   const availabilityLabel =
     days.length > 0 ? `${days.length} days / week` : 'Set availability';
 
@@ -454,9 +520,6 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     setTimePickerTarget('start');
   };
 
-  const formatTime = (value: Date) =>
-    value.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'});
-
   const handleProfileSheetClose = useCallback(() => {
     setSheet(null);
     setSearch('');
@@ -528,9 +591,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           return next;
         });
       } else if (type === 'profession') {
-        setProfessions(prev => [...prev, ...items]);
+        const next = [...professions, ...items];
+        setProfessions(next);
+        void persistProfile({professions: next});
       } else {
-        setVehicles(prev => [...prev, ...items]);
+        const next = [...vehicles, ...items];
+        setVehicles(next);
+        void persistProfile({vehicles: next});
       }
       handleProfileSheetClose();
     });
@@ -559,6 +626,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     setAadhaarMasked(masked);
     setAadhaarVerified(true);
     setAadhaarModalVisible(false);
+    void persistProfile({aadhaarVerified: true, aadhaarMasked: masked});
   };
 
   const saveAbout = () => {
@@ -567,6 +635,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     setAboutDraft(cleaned);
     setAboutSaved(true);
     setAboutEditVisible(false);
+    void persistProfile({about: cleaned});
   };
 
   const scrollBottomPad = embeddedTab
@@ -626,7 +695,15 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
               ]}
               accessibilityLabel="Change profile photo"
               accessibilityRole="button">
-              <Image source={{uri: profileImage}} style={styles.passportAvatar} />
+              {profileImage ? (
+                <Image source={{uri: profileImage}} style={styles.passportAvatar} />
+              ) : (
+                <View style={[styles.passportAvatar, styles.passportAvatarPlaceholder]}>
+                  <Text style={styles.passportAvatarInitial}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.avatarEditBadge}>
                 <ProfileStrokeIcon name="edit" color="#FFFFFF" size={11} strokeWidth={2.2} />
               </View>
@@ -634,8 +711,11 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             <View style={styles.passportInfo}>
               <View style={styles.passportNameRow}>
                 <Text style={styles.passportName} numberOfLines={1}>
-                  {profileName}
+                  {displayName}
                 </Text>
+                {displayAge ? (
+                  <Text style={styles.passportAge}>{displayAge}</Text>
+                ) : null}
                 {aadhaarVerified ? (
                   <View style={styles.verifiedPill}>
                     <ProfileStrokeIcon name="check" color="#FFF" size={10} strokeWidth={2.4} />
@@ -645,9 +725,9 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
               </View>
               <View style={styles.passportLocRow}>
                 <ProfileStrokeIcon name="pin" color={colors.textMuted} size={13} />
-                <Text style={styles.passportLocation}>{location}</Text>
+                <Text style={styles.passportLocation}>{displayLocation}</Text>
               </View>
-              <Text style={styles.passportMeta}>Tenure ID · {TENURE_ID}</Text>
+              <Text style={styles.passportMeta}>Tenure ID · {displayTenureId}</Text>
             </View>
           </View>
           <Text style={styles.passportRole}>{roleLine}</Text>
@@ -662,7 +742,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
               ]}
               accessibilityLabel="Edit hourly rate"
               accessibilityRole="button">
-              <Text style={styles.passportStatVal}>₹{hourlyRate}</Text>
+              <Text style={styles.passportStatVal}>{displayRate === '—' ? displayRate : `₹${displayRate}`}</Text>
               <Text style={styles.passportStatKey}>per hour</Text>
               <Text style={styles.passportStatEdit}>Edit rate</Text>
             </Pressable>
@@ -670,9 +750,11 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             <View style={styles.passportStat}>
               <View style={styles.ratingInline}>
                 <ProfileStrokeIcon name="star" color={colors.rating} size={14} />
-                <Text style={styles.passportStatVal}>{RATING_VALUE}</Text>
+                <Text style={styles.passportStatVal}>{ratingDisplay}</Text>
               </View>
-              <Text style={styles.passportStatKey}>{REVIEW_COUNT} reviews</Text>
+              <Text style={styles.passportStatKey}>
+                {reviewCount > 0 ? `${reviewCount} reviews` : 'No reviews yet'}
+              </Text>
             </View>
             <View style={styles.passportStatSep} />
             <View style={styles.passportStat}>
@@ -835,13 +917,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
                         active && styles.dayChipActive,
                         pressed && styles.pressed,
                       ]}
-                      onPress={() =>
-                        setDays(prev =>
-                          prev.includes(day.id)
-                            ? prev.filter(d => d !== day.id)
-                            : [...prev, day.id],
-                        )
-                      }>
+                      onPress={() => {
+                        const next = days.includes(day.id)
+                          ? days.filter(d => d !== day.id)
+                          : [...days, day.id];
+                        setDays(next);
+                        void persistProfile({days: next});
+                      }}>
                       <Text style={[styles.dayLabel, active && styles.dayLabelActive]}>
                         {day.label}
                       </Text>
@@ -887,7 +969,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             </View>
             <View style={[styles.trustRow, styles.trustRowBorder]}>
               <Text style={styles.trustRowLabel}>Email verified</Text>
-              <Text style={[styles.trustRowBadge, {color: colors.success}]}>Verified</Text>
+              <Text style={[styles.trustRowBadge, {color: colors.textMuted}]}>Not added</Text>
             </View>
             <View style={[styles.trustRow, styles.trustRowBorder]}>
               <Text style={styles.trustRowLabel}>Aadhaar verification</Text>
@@ -901,15 +983,23 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             </View>
             <View style={[styles.trustRow, styles.trustRowBorder]}>
               <Text style={styles.trustRowLabel}>Profile photo</Text>
-              <Text style={[styles.trustRowBadge, {color: colors.success}]}>Verified</Text>
+              <Text
+                style={[
+                  styles.trustRowBadge,
+                  {color: profileImage ? colors.success : colors.textMuted},
+                ]}>
+                {profileImage ? 'Added' : 'Missing'}
+              </Text>
             </View>
             <View style={[styles.trustRow, styles.trustRowBorder]}>
               <Text style={styles.trustRowLabel}>Rating</Text>
-              <Text style={styles.trustRowBadge}>{RATING_VALUE}</Text>
+              <Text style={styles.trustRowBadge}>{ratingDisplay}</Text>
             </View>
             <View style={styles.trustRow}>
               <Text style={styles.trustRowLabel}>Reviews</Text>
-              <Text style={styles.trustRowBadge}>{REVIEW_COUNT}</Text>
+              <Text style={styles.trustRowBadge}>
+                {reviewCount > 0 ? String(reviewCount) : 'None yet'}
+              </Text>
             </View>
           </View>
           {aadhaarVerified ? (
@@ -1002,8 +1092,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           <Text style={styles.sectionTitle}>Reviews Received</Text>
           <View style={styles.reviewRow}>
             <ProfileStrokeIcon name="star" color={colors.rating} size={20} />
-            <Text style={styles.reviewScore}>{RATING_VALUE}</Text>
-            <Text style={styles.reviewMeta}>· {REVIEW_COUNT} reviews</Text>
+            <Text style={styles.reviewScore}>{ratingDisplay}</Text>
+            <Text style={styles.reviewMeta}>
+              · {reviewCount > 0 ? `${reviewCount} reviews` : 'No reviews yet'}
+            </Text>
           </View>
           <Text style={styles.mutedLine}>
             Reviews appear after completed requests with mates.
@@ -1373,6 +1465,9 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           const normalized = new Date(selected);
           normalized.setSeconds(0, 0);
           setEndTime(normalized);
+          void persistProfile({
+            timeRange: `${formatTime(startTime)} – ${formatTime(normalized)}`,
+          });
         }}
       />
       ) : null}
@@ -1476,6 +1571,16 @@ const createStyles = (c: AppColors, t: DesignTokens) =>
       borderWidth: 1,
       borderColor: c.border,
     },
+    passportAvatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: hexA(c.brand, 0.1),
+    },
+    passportAvatarInitial: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: c.brand,
+    },
     avatarEditBadge: {
       position: 'absolute',
       right: -2,
@@ -1497,6 +1602,11 @@ const createStyles = (c: AppColors, t: DesignTokens) =>
       color: c.text,
       letterSpacing: -0.5,
       flexShrink: 1,
+    },
+    passportAge: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.textSecondary,
     },
     verifiedPill: {
       flexDirection: 'row',

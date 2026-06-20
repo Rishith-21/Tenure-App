@@ -7,11 +7,6 @@ import {
   ScrollView,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import HistoryAlertRow from '../components/alerts/HistoryAlertRow';
-import {
-  MOCK_HISTORY_ALERTS,
-  MOCK_PENDING_PAYMENTS,
-} from '../data/mockHistoryAlerts';
 import {useAppDialog} from '../context/DialogContext';
 import {useTheme} from '../context/ThemeContext';
 import ScreenHeader from '../components/navigation/ScreenHeader';
@@ -22,15 +17,6 @@ const AlertsScreen = () => {
   const {showAlert} = useAppDialog();
   const insets = useSafeAreaInsets();
   const [filterActive, setFilterActive] = useState(false);
-
-  const visibleAlerts = filterActive
-    ? MOCK_HISTORY_ALERTS.filter(
-        a =>
-          a.kind === 'payment_sent' ||
-          a.kind === 'payment_received' ||
-          a.kind === 'payment_canceled',
-      )
-    : MOCK_HISTORY_ALERTS;
 
   return (
     <View style={styles.container}>
@@ -50,11 +36,6 @@ const AlertsScreen = () => {
             hitSlop={8}>
             <View style={styles.filterWrap}>
               <Text style={styles.filterIcon}>≡</Text>
-              {filterActive ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>1</Text>
-                </View>
-              ) : null}
             </View>
           </Pressable>
         }
@@ -97,40 +78,13 @@ const AlertsScreen = () => {
           styles.scroll,
           {paddingBottom: insets.bottom + 100},
         ]}>
-        <View style={styles.pendingBar}>
-          <View style={styles.pendingLeft}>
-            <Text style={styles.pendingLabel}>Pending payments</Text>
-            <Text style={styles.pendingCount}>
-              {MOCK_PENDING_PAYMENTS.count} cancellation(s) to complete
-            </Text>
-          </View>
-          <Pressable
-            style={({pressed}) => [
-              styles.payBtn,
-              pressed && styles.payBtnPressed,
-            ]}
-            onPress={() =>
-              showAlert({
-                title: 'Pending payments',
-                message: `You have ${MOCK_PENDING_PAYMENTS.count} canceled payment(s) to complete.`,
-              })
-            }>
-            <Text style={styles.payBtnText}>Pay now</Text>
-          </Pressable>
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>All quiet for now</Text>
+          <Text style={styles.emptyBody}>
+            Request updates, payments, and session alerts will appear here once
+            you start using Tenure.
+          </Text>
         </View>
-
-        {visibleAlerts.map(alert => (
-          <HistoryAlertRow
-            key={alert.id}
-            alert={alert}
-            onFeedback={() =>
-              showAlert({
-                title: 'Feedback',
-                message: `Share feedback about: "${alert.message}"`,
-              })
-            }
-          />
-        ))}
       </ScrollView>
     </View>
   );
@@ -156,23 +110,6 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
     color: c.textSecondary,
     fontWeight: '700',
     letterSpacing: -1,
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: c.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
   },
   scroll: {
     paddingHorizontal: 20,
@@ -203,46 +140,23 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
   filterPillTextActive: {
     color: c.brand,
   },
-  pendingBar: {
-    flexDirection: 'row',
+  emptyWrap: {
+    marginTop: 48,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: c.bg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: c.border,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 18,
   },
-  pendingLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  pendingLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: c.text,
-  },
-  pendingCount: {
-    fontSize: 12,
-    color: c.textMuted,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  payBtn: {
-    backgroundColor: c.primary,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  payBtnPressed: {
-    opacity: 0.88,
-  },
-  payBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+  emptyTitle: {
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    color: c.text,
+    letterSpacing: -0.3,
+  },
+  emptyBody: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: '500',
+    color: c.textMuted,
+    textAlign: 'center',
+    lineHeight: 21,
   },
 });

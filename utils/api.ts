@@ -9,64 +9,152 @@ const getBaseUrl = (): string => {
 };
 
 /**
- * Handles behind-the-scenes auth mapping. Logs in if user exists, registers otherwise.
- * Returns the JWT auth token.
+ * Finds or creates the user by phone number and returns a JWT.
+ * Same phone always maps to the same account + profile on re-login.
  */
 export async function loginOrRegister(phone: string): Promise<string> {
-  const email = `phone_${phone}@tenure.app`;
-  const password = `pass_${phone}`;
   const baseUrl = getBaseUrl();
 
-  try {
-    const response = await fetch(`${baseUrl}/api/users/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.data?.token) {
-        return data.data.token;
-      }
-    }
-  } catch (err) {
-    console.log('Login request error, proceeding to register:', err);
-  }
-
-  // Fallback to register
-  const regResponse = await fetch(`${baseUrl}/api/users/register`, {
+  const response = await fetch(`${baseUrl}/api/users/phone-auth`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      email,
-      password,
-      name: `User ${phone}`,
-    }),
+    body: JSON.stringify({ phone }),
   });
 
-  if (!regResponse.ok) {
-    const errorData = await regResponse.json().catch(() => ({}));
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.message || 'Authentication failed');
   }
 
-  const regData = await regResponse.json();
-  if (!regData?.data?.token) {
-    throw new Error('No token returned from registration');
+  const data = await response.json();
+  if (!data?.data?.token) {
+    throw new Error('No token returned from authentication');
   }
-  return regData.data.token;
+  return data.data.token;
+}
+
+export type BackendUser = {
+  id: string;
+  email: string;
+  phone: string | null;
+  name: string | null;
+  role: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BackendProfile = {
+  id: string;
+  userId: string;
+  tenureId: string;
+  profilePhoto: string | null;
+  fullName: string;
+  dob: string | null;
+  gender: string | null;
+  country: string;
+  state: string;
+  district: string;
+  pinCode: string;
+  languages: string[];
+  categories: string[];
+  hourlyRate: number | null;
+  about: string | null;
+  vibes: string[];
+  professions: string[];
+  vehicles: string[];
+  interests: string[];
+  availableDays: string[];
+  availableTimeRange: string | null;
+  bestTime: string | null;
+  comfortPreferredPlaces: string | null;
+  comfortTravelRange: string | null;
+  comfortWith: string | null;
+  comfortNotWith: string | null;
+  aadhaarVerified: boolean;
+  aadhaarMasked: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProfileFetchResult =
+  | {kind: 'missing'}
+  | {kind: 'found'; profile: BackendProfile}
+  | {kind: 'failed'};
+
+export type ProfileUpsertInput = {
+  fullName: string;
+  profilePhoto?: string | null;
+  dob: string;
+  gender: string;
+  country: string;
+  state: string;
+  district: string;
+  pinCode: string;
+  languages: string[];
+  categories?: string[];
+  hourlyRate?: number | null;
+  about?: string | null;
+  vibes?: string[];
+  professions?: string[];
+  vehicles?: string[];
+  interests?: string[];
+  availableDays?: string[];
+  availableTimeRange?: string | null;
+  bestTime?: string | null;
+  comfortPreferredPlaces?: string | null;
+  comfortTravelRange?: string | null;
+  comfortWith?: string | null;
+  comfortNotWith?: string | null;
+  aadhaarVerified?: boolean;
+  aadhaarMasked?: string | null;
+};
+
+export async function fetchCurrentUser(): Promise<BackendUser | null> {
+  const token = await getToken();
+  if (!token) return null;
+
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/users/me`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch current user');
+    }
+
+    const data = await response.json();
+    return data?.data?.user || null;
+  } catch (error) {
+    console.log('Error fetching current user:', error);
+    return null;
+  }
 }
 
 /**
  * Fetches the user profile from the backend. Returns null if 404 (no profile yet).
  */
-export async function fetchProfile(): Promise<any | null> {
+export async function fetchProfile(): Promise<BackendProfile | null> {
+  const result = await fetchProfileResult();
+  if (result.kind === 'found') {
+    return result.profile;
+  }
+  return null;
+}
+
+/**
+ * Explicit profile fetch result for auth routing (distinguishes missing vs errors).
+ */
+export async function fetchProfileResult(): Promise<ProfileFetchResult> {
   const token = await getToken();
-  if (!token) return null;
+  if (!token) {
+    return {kind: 'missing'};
+  }
 
   const baseUrl = getBaseUrl();
   try {
@@ -78,25 +166,31 @@ export async function fetchProfile(): Promise<any | null> {
     });
 
     if (response.status === 404) {
-      return null;
+      return {kind: 'missing'};
     }
 
     if (!response.ok) {
-      throw new Error('Failed to fetch profile');
+      return {kind: 'failed'};
     }
 
     const data = await response.json();
-    return data?.data?.profile || null;
+    const profile = data?.data?.profile as BackendProfile | undefined;
+    if (!profile) {
+      return {kind: 'missing'};
+    }
+    return {kind: 'found', profile};
   } catch (error) {
     console.log('Error fetching profile:', error);
-    return null;
+    return {kind: 'failed'};
   }
 }
 
 /**
  * Creates or updates the user profile on the backend.
  */
-export async function upsertProfile(profileData: any): Promise<any> {
+export async function upsertProfile(
+  profileData: ProfileUpsertInput,
+): Promise<BackendProfile> {
   const token = await getToken();
   if (!token) {
     throw new Error('Not authenticated');
@@ -119,4 +213,128 @@ export async function upsertProfile(profileData: any): Promise<any> {
 
   const data = await response.json();
   return data?.data?.profile;
+}
+
+export type DiscoverMateApi = {
+  userId: string;
+  tenureId: string;
+  fullName: string;
+  profilePhoto: string | null;
+  district: string;
+  state: string;
+  gender: string | null;
+  dob: string;
+  categories: string[];
+  hourlyRate: number | null;
+  languages: string[];
+  about: string | null;
+  aadhaarVerified: boolean;
+};
+
+export type DiscoverSearchParams = {
+  q?: string;
+  district?: string | null;
+  category?: string | null;
+  gender?: 'all' | 'male' | 'female';
+  ageRange?: 'all' | 'under30' | '30to45' | 'over45';
+  hourlyRateRange?: 'all' | 'under70' | '70to200' | '200to300' | 'custom';
+  customHourlyRateMin?: number | null;
+  customHourlyRateMax?: number | null;
+};
+
+/**
+ * Search discoverable mates (excludes current user).
+ */
+export async function searchMates(
+  params: DiscoverSearchParams,
+): Promise<DiscoverMateApi[]> {
+  const token = await getToken();
+  if (!token) {
+    return [];
+  }
+
+  const searchParams = new URLSearchParams();
+  if (params.q?.trim()) {
+    searchParams.set('q', params.q.trim());
+  }
+  if (params.district) {
+    searchParams.set('district', params.district);
+  }
+  if (params.category) {
+    searchParams.set('category', params.category);
+  }
+  if (params.gender && params.gender !== 'all') {
+    searchParams.set('gender', params.gender);
+  }
+  if (params.ageRange && params.ageRange !== 'all') {
+    searchParams.set('ageRange', params.ageRange);
+  }
+  if (params.hourlyRateRange && params.hourlyRateRange !== 'all') {
+    searchParams.set('hourlyRateRange', params.hourlyRateRange);
+  }
+  if (params.customHourlyRateMin != null) {
+    searchParams.set('customHourlyRateMin', String(params.customHourlyRateMin));
+  }
+  if (params.customHourlyRateMax != null) {
+    searchParams.set('customHourlyRateMax', String(params.customHourlyRateMax));
+  }
+
+  const baseUrl = getBaseUrl();
+  const qs = searchParams.toString();
+  const url = `${baseUrl}/api/users/discover${qs ? `?${qs}` : ''}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to search mates');
+    }
+
+    const data = await response.json();
+    return data?.data?.mates ?? [];
+  } catch (error) {
+    console.log('Error searching mates:', error);
+    throw error;
+  }
+}
+
+/**
+ * Public mate profile for profile screen (another user's discoverable profile).
+ */
+export async function fetchMatePublicProfile(
+  userId: string,
+): Promise<DiscoverMateApi | null> {
+  const token = await getToken();
+  if (!token) {
+    return null;
+  }
+
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/users/mates/${userId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch mate profile');
+    }
+
+    const data = await response.json();
+    return data?.data?.mate ?? null;
+  } catch (error) {
+    console.log('Error fetching mate profile:', error);
+    return null;
+  }
 }

@@ -1,5 +1,6 @@
 import React, {useMemo, useState, useCallback} from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -13,52 +14,14 @@ import Svg, {Circle, Path} from 'react-native-svg';
 import BackButton from '../components/navigation/BackButton';
 import {goBackSafe} from '../navigation/navigationActions';
 import {useTheme} from '../context/ThemeContext';
-import {fetchProfile} from '../utils/api';
+import {fetchCurrentUser, fetchProfile} from '../utils/api';
+import {
+  mapApiProfileToView,
+  type ViewProfileData,
+} from '../utils/profileApiMapper';
+import {formatAgeYears} from '../utils/ageFromDob';
 import type {AppColors} from '../theme/palettes';
 import type {DesignTokens} from '../theme/tokens';
-
-/* ──────────────────────────────────────────────────────────
- * Current-user profile data (safe fallbacks).
- * No backend fields are invented — these mirror the local
- * defaults already used by the edit profile screen.
- * ────────────────────────────────────────────────────────── */
-const CURRENT_USER = {
-  name: 'Arjun',
-  location: 'Mitte, Berlin',
-  tenureId: 'T-9082',
-  avatar:
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=320&q=80',
-  rate: '45',
-  categories: ['Travel Buddy', 'Coffee Mate', 'Local Guide'],
-  vibes: ['Calm', 'Friendly', 'Good Listener'],
-  languages: [] as string[],
-  professions: [] as string[],
-  vehicles: [] as string[],
-  interests: [] as string[],
-  about: '',
-  days: ['MON', 'WED', 'THU', 'FRI'],
-  timeRange: '10:00 AM – 6:00 PM',
-  bestTime: 'Afternoons',
-  ratingValue: null as number | null,
-  reviewCount: 0,
-  phoneVerified: true,
-  emailVerified: true,
-  aadhaarVerified: false,
-  photoVerified: true,
-  comfort: {
-    preferredPlaces: 'Public places',
-    travelRange: 'Up to 8 km',
-    comfortableWith: 'Coffee shops, malls, events, city walks',
-    notComfortableWith: 'Private locations, late-night requests',
-  } as ComfortZone | null,
-};
-
-type ComfortZone = {
-  preferredPlaces: string;
-  travelRange: string;
-  comfortableWith: string;
-  notComfortableWith: string;
-};
 
 const DAY_LABELS: Record<string, string> = {
   MON: 'Mon',
@@ -71,6 +34,17 @@ const DAY_LABELS: Record<string, string> = {
 };
 
 type Status = 'verified' | 'pending' | 'missing' | 'neutral';
+
+function formatTimelineDate(iso: string | null): string {
+  if (!iso) return 'Not yet';
+  return new Date(iso).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+const EMPTY_PROFILE: ViewProfileData = mapApiProfileToView(null, null, null);
 
 /* ─── Minimal stroke icons (no emoji) ─────────────────────── */
 type IconName =
@@ -431,28 +405,37 @@ const ViewProfileScreen = ({navigation}: any) => {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
 
-  const [profile, setProfile] = useState(CURRENT_USER);
+  const [profile, setProfile] = useState<ViewProfileData>(EMPTY_PROFILE);
+  const [loading, setLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       const loadData = async () => {
+        setLoading(true);
         try {
-          const fetched = await fetchProfile();
-          if (fetched && active) {
-            setProfile(prev => ({
-              ...prev,
-              name: fetched.fullName || prev.name,
-              location: fetched.district ? `${fetched.district}, ${fetched.state}` : prev.location,
-              tenureId: fetched.tenureId || prev.tenureId,
-              avatar: fetched.profilePhoto || prev.avatar,
-              rate: fetched.hourlyRate != null ? String(fetched.hourlyRate) : prev.rate,
-              categories: fetched.categories && fetched.categories.length > 0 ? fetched.categories : prev.categories,
-              languages: fetched.languages && fetched.languages.length > 0 ? fetched.languages : prev.languages,
-            }));
+          const [fetchedProfile, currentUser] = await Promise.all([
+            fetchProfile(),
+            fetchCurrentUser(),
+          ]);
+          if (active) {
+            setProfile(
+              mapApiProfileToView(
+                fetchedProfile,
+                currentUser?.phone ?? null,
+                currentUser?.createdAt ?? null,
+              ),
+            );
           }
         } catch (err) {
           console.log('Failed to fetch profile in ViewProfileScreen:', err);
+          if (active) {
+            setProfile(mapApiProfileToView(null, null, null));
+          }
+        } finally {
+          if (active) {
+            setLoading(false);
+          }
         }
       };
       loadData();
@@ -463,6 +446,11 @@ const ViewProfileScreen = ({navigation}: any) => {
   );
 
   const u = profile;
+  const displayName = u.name || 'Add your name';
+  const displayAge = formatAgeYears(u.age);
+  const displayLocation = u.location || 'Add location';
+  const displayTenureId = u.tenureId || 'Not assigned';
+  const displayRate = u.rate ? `₹${u.rate}` : '—';
 
   /* ── Navigation handlers (reuse existing routes) ──────── */
   const goEditProfile = () => navigation.navigate('UserProfile');
@@ -503,9 +491,12 @@ const ViewProfileScreen = ({navigation}: any) => {
   const ratingDisplay = u.ratingValue != null ? u.ratingValue.toFixed(1) : 'New';
   const availableDaysLabel = u.days.map(d => DAY_LABELS[d] ?? d).join(', ');
 
-  const requesterSummary = `${u.name} is available for ${u.categories
-    .slice(0, 3)
-    .join(', ')} requests around ${u.location}.`;
+  const requesterSummary =
+    u.categories.length > 0 && u.location
+      ? `${displayName} is available for ${u.categories.slice(0, 3).join(', ')} requests around ${u.location}.`
+      : u.categories.length > 0
+        ? `${displayName} is available for ${u.categories.slice(0, 3).join(', ')} requests.`
+        : `${displayName} is setting up their companion profile on Tenure.`;
 
   return (
     <View style={styles.screen}>
@@ -546,12 +537,23 @@ const ViewProfileScreen = ({navigation}: any) => {
           </View>
 
           <View style={styles.passportIdentity}>
-            <Image source={{uri: u.avatar}} style={styles.passportAvatar} />
+            {u.avatar ? (
+              <Image source={{uri: u.avatar}} style={styles.passportAvatar} />
+            ) : (
+              <View style={[styles.passportAvatar, styles.passportAvatarPlaceholder]}>
+                <Text style={styles.passportAvatarInitial}>
+                  {displayName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View style={styles.passportInfo}>
               <View style={styles.passportNameRow}>
                 <Text style={styles.passportName} numberOfLines={1}>
-                  {u.name}
+                  {displayName}
                 </Text>
+                {displayAge ? (
+                  <Text style={styles.passportAge}>{displayAge}</Text>
+                ) : null}
                 {u.aadhaarVerified ? (
                   <View style={styles.verifiedBadge}>
                     <Icon name="check" color="#FFFFFF" size={11} strokeWidth={2.4} />
@@ -561,9 +563,9 @@ const ViewProfileScreen = ({navigation}: any) => {
               </View>
               <View style={styles.passportLocationRow}>
                 <Icon name="pin" color={colors.textMuted} size={13} />
-                <Text style={styles.passportLocation}>{u.location}</Text>
+                <Text style={styles.passportLocation}>{displayLocation}</Text>
               </View>
-              <Text style={styles.passportTenureId}>Tenure ID · {u.tenureId}</Text>
+              <Text style={styles.passportTenureId}>Tenure ID · {displayTenureId}</Text>
             </View>
           </View>
 
@@ -573,7 +575,7 @@ const ViewProfileScreen = ({navigation}: any) => {
 
           <View style={styles.passportStats}>
             <View style={styles.passportStat}>
-              <Text style={styles.passportStatValue}>₹{u.rate}</Text>
+              <Text style={styles.passportStatValue}>{displayRate}</Text>
               <Text style={styles.passportStatLabel}>per hour</Text>
             </View>
             <View style={styles.passportStatSep} />
@@ -607,7 +609,7 @@ const ViewProfileScreen = ({navigation}: any) => {
           colors={colors}>
           <Text style={styles.previewSummary}>{requesterSummary}</Text>
           <View style={styles.previewMeta}>
-            <Text style={styles.previewMetaItem}>₹{u.rate}/hr</Text>
+            <Text style={styles.previewMetaItem}>{u.rate ? `₹${u.rate}/hr` : 'Rate not set'}</Text>
             <View style={styles.previewMetaDot} />
             <Text style={styles.previewMetaItem}>
               {isAvailable ? 'Available' : 'Paused'}
@@ -907,13 +909,13 @@ const ViewProfileScreen = ({navigation}: any) => {
           <View style={styles.timeline}>
             <TimelineItem
               label="Joined Tenure"
-              value="Account active"
+              value={formatTimelineDate(u.joinedAt)}
               styles={styles}
               colors={colors}
             />
             <TimelineItem
               label="Profile created"
-              value="Setup completed"
+              value={formatTimelineDate(u.profileCreatedAt)}
               styles={styles}
               colors={colors}
             />
@@ -926,6 +928,11 @@ const ViewProfileScreen = ({navigation}: any) => {
             />
           </View>
         </SectionCard>
+        {loading ? (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="small" color={colors.brand} />
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* 13. Sticky owner CTA */}
@@ -1041,6 +1048,21 @@ const createStyles = (c: AppColors, t: DesignTokens) =>
       borderWidth: 1,
       borderColor: c.border,
     },
+    passportAvatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: hexA(c.brand, 0.1),
+    },
+    passportAvatarInitial: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: c.brand,
+    },
+    loadingOverlay: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: t.spacing.lg,
+    },
     passportInfo: {flex: 1, minWidth: 0},
     passportNameRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
     passportName: {
@@ -1049,6 +1071,11 @@ const createStyles = (c: AppColors, t: DesignTokens) =>
       color: c.text,
       letterSpacing: -0.5,
       flexShrink: 1,
+    },
+    passportAge: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: c.textSecondary,
     },
     verifiedBadge: {
       flexDirection: 'row',

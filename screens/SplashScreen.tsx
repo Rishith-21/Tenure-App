@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useRef} from 'react';
 import {View, Text, StyleSheet, Animated, Easing} from 'react-native';
 import {useTheme} from '../context/ThemeContext';
-import {getAuthRoute} from '../utils/authStorage';
+import {resolveAuthDestination} from '../utils/authRouting';
 import {resetToRoute} from '../navigation/navigationActions';
 
 const SplashScreen = ({navigation}: any) => {
@@ -67,7 +67,7 @@ const SplashScreen = ({navigation}: any) => {
       await new Promise<void>(r => setTimeout(r, 2200));
       if (!mounted) return;
       try {
-        const route = await getAuthRoute();
+        const route = await resolveAuthDestination();
         resetToRoute(navigation, route);
       } catch {
         resetToRoute(navigation, 'Login');

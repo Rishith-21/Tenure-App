@@ -149,22 +149,8 @@ const PROFILE_DETAILS: Record<string, Partial<MatePublicProfile>> = {
   },
 };
 
-const DUCK_USER: SearchMateUser = {
-  id: 'u-duck',
-  name: 'Duck',
-  tenureId: 'TGR456H',
-  categories: ['Shopping Mate'],
-  ratePerHour: 50,
-  avatar: 'https://i.pravatar.cc/150?img=20',
-  district: 'Udupi',
-  gender: 'male',
-  age: 27,
-};
-
 export const getMateProfile = (userId: string): MatePublicProfile | null => {
-  const base =
-    MOCK_SEARCH_USERS.find(u => u.id === userId) ??
-    (userId === 'u-duck' ? DUCK_USER : undefined);
+  const base = MOCK_SEARCH_USERS.find(u => u.id === userId);
   if (!base) {
     return null;
   }
@@ -175,14 +161,14 @@ export const getMateProfile = (userId: string): MatePublicProfile | null => {
     ...base,
     birthYear: extra.birthYear ?? 1999,
     location: extra.location ?? `India, karnataka, ${base.district.toLowerCase()}`,
-    languages: extra.languages ?? ['Kannada', 'English'],
+    languages: extra.languages ?? [],
     professions: extra.professions ?? [],
     vehicles: extra.vehicles ?? [],
-    bio: extra.bio ?? 'Available for mate requests.',
-    availableTime: extra.availableTime ?? '05:30 PM – 05:30 PM',
-    availableDays: extra.availableDays ?? ['SUN', 'SAT'],
-    reviewPercent: extra.reviewPercent ?? 70,
-    reviewCount: extra.reviewCount ?? 1,
+    bio: extra.bio ?? '',
+    availableTime: extra.availableTime ?? '',
+    availableDays: extra.availableDays ?? [],
+    reviewPercent: extra.reviewPercent ?? 0,
+    reviewCount: extra.reviewCount ?? 0,
     aadhaarVerified: extra.aadhaarVerified ?? false,
     social: extra.social ?? {},
   };
@@ -213,21 +199,21 @@ export const getMateProfileFromRequest = (
     name: mateName,
     tenureId: mateTenureId,
     categories: [categoryLabel],
-    ratePerHour: 50,
+    ratePerHour: 0,
     avatar: mateAvatar,
-    district: 'Udupi',
+    district: '',
     gender: 'male',
-    age: 28,
-    birthYear: 1999,
+    age: 0,
+    birthYear: 0,
     location,
-    languages: ['Kannada', 'English'],
+    languages: [],
     professions: [],
     vehicles: [],
-    bio: 'Available for mate requests.',
-    availableTime: '05:30 PM – 05:30 PM',
-    availableDays: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
-    reviewPercent: 70,
-    reviewCount: 1,
+    bio: '',
+    availableTime: '',
+    availableDays: [],
+    reviewPercent: 0,
+    reviewCount: 0,
     aadhaarVerified: false,
     social: {},
   };

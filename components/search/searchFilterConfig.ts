@@ -160,7 +160,7 @@ export const SEARCH_DISTRICTS = [
 
 export const SEARCH_CATEGORY_OPTIONS = [
   {label: 'All categories', value: 'all'},
-  ...MATE_CATEGORIES.map(c => ({label: c.label, value: c.label})),
+  ...MATE_CATEGORIES.map(c => ({label: c.label, value: c.id})),
 ];
 
 export const getActiveFilterCount = (filters: SearchFilters): number =>

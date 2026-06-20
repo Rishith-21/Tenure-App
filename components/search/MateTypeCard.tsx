@@ -8,7 +8,7 @@ export type MateTypeItem = {
   label: string;
   subtitle: string;
   badge: string;
-  filterLabel: string;
+  filterCategoryId: string;
 };
 
 type Props = {

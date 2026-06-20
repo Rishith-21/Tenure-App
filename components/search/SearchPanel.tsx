@@ -1,5 +1,6 @@
-import React, {useCallback, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Keyboard,
@@ -13,13 +14,15 @@ import {
   View,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {MOCK_SEARCH_USERS, SearchMateUser} from '../../data/mockSearchResults';
+import {SearchMateUser} from '../../data/mockSearchResults';
+import {searchMates} from '../../utils/api';
+import {mapDiscoverMateToSearchUser} from '../../utils/discoverApiMapper';
+import {getMateCategoryLabel} from '../../utils/mateCategoryUtils';
 import {
   createDefaultSearchFilters,
   DEFAULT_SEARCH_FILTERS,
   getActiveFilterCount,
   getHourlyRateFilterLabel,
-  matchesHourlyRate,
   SearchFilters,
 } from './searchFilterConfig';
 import SearchHeader from './SearchHeader';
@@ -46,62 +49,6 @@ const GRID_PAD = 20;
 const CARD_W = (SCREEN_W - GRID_PAD * 2 - GRID_GAP) / 2;
 
 const normalize = (text: string) => text.trim().toLowerCase();
-
-const matchesQuery = (user: SearchMateUser, query: string) => {
-  const q = normalize(query);
-  if (!q) {
-    return true;
-  }
-  if (user.name.toLowerCase().includes(q)) {
-    return true;
-  }
-  if (user.tenureId.toLowerCase().includes(q)) {
-    return true;
-  }
-  if (user.district.toLowerCase().includes(q)) {
-    return true;
-  }
-  return user.categories.some(cat => normalize(cat).includes(q));
-};
-
-const matchesCategoryFilter = (
-  user: SearchMateUser,
-  categoryFilter: string | null,
-) => {
-  if (!categoryFilter || categoryFilter === 'all') {
-    return true;
-  }
-  return user.categories.some(
-    cat => normalize(cat) === normalize(categoryFilter),
-  );
-};
-
-const matchesFilters = (user: SearchMateUser, filters: SearchFilters) => {
-  if (filters.district && filters.district !== 'all') {
-    if (user.district !== filters.district) {
-      return false;
-    }
-  }
-  if (!matchesCategoryFilter(user, filters.category)) {
-    return false;
-  }
-  if (filters.gender !== 'all' && user.gender !== filters.gender) {
-    return false;
-  }
-  if (filters.ageRange === 'under30' && user.age >= 30) {
-    return false;
-  }
-  if (filters.ageRange === '30to45' && (user.age < 30 || user.age > 45)) {
-    return false;
-  }
-  if (filters.ageRange === 'over45' && user.age <= 45) {
-    return false;
-  }
-  if (!matchesHourlyRate(user.ratePerHour, filters)) {
-    return false;
-  }
-  return true;
-};
 
 const matchesQuickFilters = (
   user: SearchMateUser,
@@ -164,27 +111,66 @@ const SearchPanel = ({
   const [quickFilters, setQuickFilters] = useState<Set<QuickFilterId>>(
     new Set(),
   );
-  const [recentSearches, setRecentSearches] = useState<string[]>([
-    'Shopping Mate',
-    'Dakshina Kannada',
-  ]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [apiUsers, setApiUsers] = useState<SearchMateUser[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const activeFilterCount = getActiveFilterCount(filters);
   const hasQuery = normalize(query).length > 0;
   const showResults =
     hasQuery || activeFilterCount > 0 || quickFilters.size > 0;
 
+  useEffect(() => {
+    if (!showResults) {
+      setApiUsers([]);
+      setSearchError(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      setSearchError(null);
+      try {
+        const mates = await searchMates({
+          q: query,
+          district: filters.district,
+          category: filters.category,
+          gender: filters.gender,
+          ageRange: filters.ageRange,
+          hourlyRateRange: filters.hourlyRateRange,
+          customHourlyRateMin: filters.customHourlyRateMin,
+          customHourlyRateMax: filters.customHourlyRateMax,
+        });
+        if (!cancelled) {
+          setApiUsers(mates.map(mapDiscoverMateToSearchUser));
+        }
+      } catch {
+        if (!cancelled) {
+          setApiUsers([]);
+          setSearchError('Could not load companions. Check your connection.');
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [showResults, query, filters]);
+
   const filteredUsers = useMemo(() => {
     if (!showResults) {
       return [];
     }
-    return MOCK_SEARCH_USERS.filter(
-      user =>
-        matchesQuery(user, query) &&
-        matchesFilters(user, filters) &&
-        matchesQuickFilters(user, quickFilters),
-    );
-  }, [query, filters, quickFilters, showResults]);
+    return apiUsers.filter(user => matchesQuickFilters(user, quickFilters));
+  }, [apiUsers, quickFilters, showResults]);
 
   const toggleQuickFilter = useCallback(
     (id: QuickFilterId) => {
@@ -233,22 +219,17 @@ const SearchPanel = ({
   }, []);
 
   const handleCategoryPress = useCallback(
-    (label: string) => {
-      const isSelected =
-        filters.category != null &&
-        normalize(filters.category) === normalize(label);
+    (categoryId: string) => {
+      const isSelected = filters.category === categoryId;
       if (isSelected) {
         setFilters({...filters, category: null});
-        if (normalize(query) === normalize(label)) {
-          setQuery('');
-        }
         return;
       }
-      setQuery(label);
-      setFilters({...filters, category: label});
-      addRecent(label);
+      setQuery('');
+      setFilters({...filters, category: categoryId});
+      addRecent(getMateCategoryLabel(categoryId) ?? categoryId);
     },
-    [filters, query, setFilters, setQuery, addRecent],
+    [filters, setFilters, setQuery, addRecent],
   );
 
   const openMateProfile = useCallback(
@@ -292,24 +273,29 @@ const SearchPanel = ({
   );
 
   const resultsTitle =
-    filteredUsers.length === 1
-      ? '1 mate found'
-      : `${filteredUsers.length} mates found`;
+    filteredUsers.length === 0
+      ? 'No companions yet'
+      : filteredUsers.length === 1
+        ? '1 mate found'
+        : `${filteredUsers.length} mates found`;
 
   const hourlyRateLabel = getHourlyRateFilterLabel(filters);
+  const activeCategoryLabel = getMateCategoryLabel(filters.category);
   const resultsSubtitle = hasQuery
     ? hourlyRateLabel
       ? `Matching “${query.trim()}” · ${hourlyRateLabel}`
       : `Matching “${query.trim()}”`
-    : hourlyRateLabel
+    : activeCategoryLabel
       ? hourlyRateLabel
-      : activeFilterCount > 0 || quickFilters.size > 0
-        ? 'Based on your filters'
-        : null;
+        ? `${activeCategoryLabel} · ${hourlyRateLabel}`
+        : activeCategoryLabel
+      : hourlyRateLabel
+        ? hourlyRateLabel
+        : activeFilterCount > 0 || quickFilters.size > 0
+          ? 'Based on your filters'
+          : null;
 
-  const isMateTypeSelected = (filterLabel: string) =>
-    filters.category != null &&
-    normalize(filters.category) === normalize(filterLabel);
+  const isMateTypeSelected = (categoryId: string) => filters.category === categoryId;
 
   const clearRecents = () => setRecentSearches([]);
 
@@ -368,8 +354,8 @@ const SearchPanel = ({
           <MateTypeCompact
             key={item.id}
             item={item}
-            selected={isMateTypeSelected(item.filterLabel)}
-            onPress={() => handleCategoryPress(item.filterLabel)}
+            selected={isMateTypeSelected(item.filterCategoryId)}
+            onPress={() => handleCategoryPress(item.filterCategoryId)}
           />
         ))}
       </ScrollView>
@@ -384,8 +370,8 @@ const SearchPanel = ({
               <View key={item.id} style={styles.gridCell}>
                 <MateTypeCard
                   item={item}
-                  selected={isMateTypeSelected(item.filterLabel)}
-                  onPress={() => handleCategoryPress(item.filterLabel)}
+                  selected={isMateTypeSelected(item.filterCategoryId)}
+                  onPress={() => handleCategoryPress(item.filterCategoryId)}
                 />
               </View>
             ))}
@@ -399,14 +385,15 @@ const SearchPanel = ({
       <View style={[styles.suggestedBlock, getSearchShadowCard(elevated)]}>
         {SUGGESTED_SEARCHES.map((item, index) => {
           const initials =
-            item.filterLabel?.slice(0, 2).toUpperCase() ?? '••';
+            getMateCategoryLabel(item.filterCategoryId)?.slice(0, 2).toUpperCase() ??
+            '••';
           const isLast = index === SUGGESTED_SEARCHES.length - 1;
           return (
             <Pressable
               key={item.id}
               onPress={() => {
-                if (item.filterLabel) {
-                  handleCategoryPress(item.filterLabel);
+                if (item.filterCategoryId) {
+                  handleCategoryPress(item.filterCategoryId);
                 } else {
                   setQuery(item.query);
                   addRecent(item.query);
@@ -495,7 +482,21 @@ const SearchPanel = ({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         ItemSeparatorComponent={() => <View style={styles.listGap} />}
-        ListEmptyComponent={<EmptyState />}
+        ListEmptyComponent={
+          searchLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="small" color={S.primary} />
+              <Text style={styles.loadingText}>Searching companions…</Text>
+            </View>
+          ) : searchError ? (
+            <EmptyState title="Search unavailable" message={searchError} />
+          ) : (
+            <EmptyState
+              title="No companions nearby yet"
+              message="You're among the first on Tenure. As more people join and complete their profiles, they'll show up here."
+            />
+          )
+        }
         renderItem={({item}) => (
           <ResultCard
             user={item}
@@ -696,6 +697,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: S.primary,
     paddingTop: 2,
+  },
+  loadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: S.textSecondary,
   },
   pressed: {opacity: 0.7},
 });

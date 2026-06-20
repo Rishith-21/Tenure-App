@@ -37,6 +37,9 @@ export async function clearAuth(): Promise<void> {
   ]);
 }
 
+/**
+ * Legacy local-only route resolver. Prefer {@link resolveAuthDestination} from authRouting.
+ */
 export async function getAuthRoute(): Promise<AuthRoute> {
   const stored = await AsyncStorage.multiGet([
     KEYS.LOGGED_IN,

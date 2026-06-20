@@ -6,63 +6,63 @@ export const BROWSE_MATE_TYPES: MateTypeItem[] = [
     label: 'Travel Buddy',
     subtitle: 'Trips & getaways',
     badge: 'TR',
-    filterLabel: 'Travel Mate',
+    filterCategoryId: 'travel',
   },
   {
     id: 'coffee',
     label: 'Coffee Mate',
     subtitle: 'Cafés & chats',
     badge: 'CF',
-    filterLabel: 'Talking Mate',
+    filterCategoryId: 'talking',
   },
   {
     id: 'movie',
     label: 'Movie Mate',
     subtitle: 'Cinema & OTT',
     badge: 'MV',
-    filterLabel: 'Movie Mate',
+    filterCategoryId: 'movie',
   },
   {
     id: 'walk',
     label: 'City Walk',
     subtitle: 'Explore together',
     badge: 'CW',
-    filterLabel: 'Day Mate',
+    filterCategoryId: 'day',
   },
   {
     id: 'shopping',
     label: 'Shopping',
     subtitle: 'Malls & markets',
     badge: 'SH',
-    filterLabel: 'Shopping Mate',
+    filterCategoryId: 'shopping',
   },
   {
     id: 'events',
     label: 'Events',
     subtitle: 'Concerts & meets',
     badge: 'EV',
-    filterLabel: 'Day Mate',
+    filterCategoryId: 'day',
   },
   {
     id: 'food',
     label: 'Food Partner',
     subtitle: 'Dining out',
     badge: 'FD',
-    filterLabel: 'Food Mate',
+    filterCategoryId: 'food',
   },
   {
     id: 'hospital',
     label: 'Hospital',
     subtitle: 'Visit support',
     badge: 'HP',
-    filterLabel: 'Hospital Mate',
+    filterCategoryId: 'hospital',
   },
   {
     id: 'guide',
     label: 'Local Guide',
     subtitle: 'City tips',
     badge: 'LG',
-    filterLabel: 'Language Mate',
+    filterCategoryId: 'language',
   },
 ];
 
@@ -81,7 +81,7 @@ export type SuggestedItem = {
   title: string;
   subtitle: string;
   query: string;
-  filterLabel?: string;
+  filterCategoryId?: string;
 };
 
 export const SUGGESTED_SEARCHES: SuggestedItem[] = [
@@ -89,22 +89,22 @@ export const SUGGESTED_SEARCHES: SuggestedItem[] = [
     id: 's1',
     title: 'Coffee Mate near Mitte',
     subtitle: '3 mates available this afternoon',
-    query: 'Talking Mate',
-    filterLabel: 'Talking Mate',
+    query: '',
+    filterCategoryId: 'talking',
   },
   {
     id: 's2',
     title: 'Travel Buddy available today',
     subtitle: 'Weekend trips & airport runs',
-    query: 'Travel Mate',
-    filterLabel: 'Travel Mate',
+    query: '',
+    filterCategoryId: 'travel',
   },
   {
     id: 's3',
     title: 'Movie Mate this evening',
     subtitle: 'New releases & OTT watch',
-    query: 'Movie Mate',
-    filterLabel: 'Movie Mate',
+    query: '',
+    filterCategoryId: 'movie',
   },
 ];
 

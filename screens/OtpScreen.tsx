@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import {setLoggedIn, setToken} from '../utils/authStorage';
 import {loginOrRegister} from '../utils/api';
+import {resolvePostAuthDestination} from '../utils/authRouting';
 import {isAccountDeactivated, setAccountDeactivated} from '../utils/accountStatusStorage';
 import {appDialog} from '../context/dialogRef';
-import {resetToOnboardingProfile} from '../navigation/navigationActions';
+import {resetToMainTabs, resetToOnboardingProfile} from '../navigation/navigationActions';
 import EditPhoneSheet from '../components/auth/EditPhoneSheet';
 import BackButton from '../components/navigation/BackButton';
 import {useTheme} from '../context/ThemeContext';
@@ -72,21 +73,43 @@ const OtpScreen = ({navigation, route}: any) => {
   };
 
   const finishLogin = async () => {
+    const phone = phoneNumber.trim();
+    if (phone.length !== 10) {
+      appDialog.showAlert({
+        title: 'Invalid phone number',
+        message: 'Enter a valid 10-digit mobile number and try again.',
+      });
+      return;
+    }
+
     try {
-      const token = await loginOrRegister(phoneNumber || '9999999999');
+      const token = await loginOrRegister(phone);
       await setToken(token);
+      await setLoggedIn(phone);
+
+      const destination = await resolvePostAuthDestination();
+      if (destination === 'MainTabs') {
+        resetToMainTabs(navigation);
+      } else {
+        resetToOnboardingProfile(navigation);
+      }
     } catch (err) {
       console.log('Backend authentication failed:', err);
+      appDialog.showAlert({
+        title: 'Sign in failed',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'Something went wrong. Please try again.',
+      });
     }
-    await setLoggedIn(phoneNumber || '9999999999');
-    resetToOnboardingProfile(navigation);
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (otp.join('').length !== 4) return;
     setLoading(true);
-    setTimeout(async () => {
-      setLoading(false);
+    try {
+      await new Promise<void>(resolve => setTimeout(resolve, 1200));
       const deactivated = await isAccountDeactivated();
       if (deactivated) {
         appDialog.showConfirm({
@@ -103,7 +126,9 @@ const OtpScreen = ({navigation, route}: any) => {
         return;
       }
       await finishLogin();
-    }, 1200);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const otpComplete = otp.every((d: string) => d.length === 1);

@@ -1,13 +1,16 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   StatusBar,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {getMateProfile} from '../data/mateProfiles';
+import {getMateProfile, type MatePublicProfile} from '../data/mateProfiles';
+import {fetchMatePublicProfile} from '../utils/api';
+import {mapDiscoverMateToPublicProfile} from '../utils/discoverApiMapper';
 import {useAppDialog} from '../context/DialogContext';
 import {useTheme} from '../context/ThemeContext';
 import MatePublicProfileView from '../components/mate/MatePublicProfileView';
@@ -26,13 +29,45 @@ const MateProfileScreen = ({navigation, route}: any) => {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const userId = route.params?.userId as string;
-  const profile = getMateProfile(userId);
+
+  const [profile, setProfile] = useState<MatePublicProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [isFavorite, setIsFavorite] = useState(
     route.params?.isFavorite ?? false,
   );
   const [requestModalVisible, setRequestModalVisible] = useState(false);
   const addSentRequest = useMateRequestsStore(s => s.addSentRequest);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      const apiMate = await fetchMatePublicProfile(userId);
+      if (!active) {
+        return;
+      }
+      if (apiMate) {
+        setProfile(mapDiscoverMateToPublicProfile(apiMate));
+      } else {
+        setProfile(getMateProfile(userId));
+      }
+      setLoading(false);
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <View style={[styles.missing, {paddingTop: insets.top}]}>
+        <StatusBar backgroundColor={colors.bg} barStyle={colors.statusBar} />
+        <ActivityIndicator size="small" color={colors.brand} />
+      </View>
+    );
+  }
 
   if (!profile) {
     return (

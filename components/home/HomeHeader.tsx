@@ -9,9 +9,6 @@ const H = {
   border: '#E5E7EB',
 } as const;
 
-const DEFAULT_AVATAR =
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80';
-
 export type HomeHeaderUser = {
   greeting?: string;
   name?: string;
@@ -40,10 +37,11 @@ const HomeHeader = ({
   menuButtonRef,
   onMenuButtonLayout,
 }: Props) => {
-  const greeting = user?.greeting ?? 'Good morning';
-  const name = user?.name ?? 'Arjun';
-  const locationLine = user?.locationLine ?? 'Mitte, Berlin · T-9082';
-  const avatarUri = user?.avatarUri ?? DEFAULT_AVATAR;
+  const greeting = user?.greeting ?? 'Welcome';
+  const name = user?.name ?? 'Your profile';
+  const locationLine = user?.locationLine ?? 'Complete your profile';
+  const avatarUri = user?.avatarUri;
+  const avatarInitial = name.charAt(0).toUpperCase();
 
   return (
     <View style={[styles.wrap, {paddingTop: topInset + 8}]}>
@@ -52,7 +50,13 @@ const HomeHeader = ({
         accessibilityRole="button"
         accessibilityLabel="Open profile"
         style={({pressed}) => [styles.identity, pressed && styles.pressed]}>
-        <Image source={{uri: avatarUri}} style={styles.avatar} />
+        {avatarUri ? (
+          <Image source={{uri: avatarUri}} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarPlaceholder]}>
+            <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+          </View>
+        )}
         <View style={styles.textCol}>
           <Text style={styles.greeting} numberOfLines={1}>
             {greeting}
@@ -115,6 +119,15 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: H.primary,
     flexShrink: 0,
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: H.primary,
   },
   textCol: {
     flex: 1,
