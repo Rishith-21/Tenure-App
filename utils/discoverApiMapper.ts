@@ -45,7 +45,11 @@ export function mapDiscoverMateToPublicProfile(
     reviewPercent: 0,
     reviewCount: 0,
     aadhaarVerified: mate.aadhaarVerified,
-    social: {},
+    social: {
+      ...(mate.instagram ? {instagram: mate.instagram} : {}),
+      ...(mate.youtube ? {youtube: mate.youtube} : {}),
+      ...(mate.website ? {website: mate.website} : {}),
+    },
   };
 }
 

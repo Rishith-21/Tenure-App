@@ -217,6 +217,17 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         if (fetched.availableDays) setDays(fetched.availableDays);
         if (fetched.aadhaarVerified) setAadhaarVerified(true);
         if (fetched.aadhaarMasked) setAadhaarMasked(fetched.aadhaarMasked);
+
+        const backendSocial: ProfileSocialLinks = {};
+        if (fetched.instagram) backendSocial.instagram = fetched.instagram;
+        if (fetched.facebook) backendSocial.facebook = fetched.facebook;
+        if (fetched.youtube) backendSocial.youtube = fetched.youtube;
+        if (fetched.website) backendSocial.website = fetched.website;
+        if (Object.keys(backendSocial).length > 0) {
+          profileMountCache.social = backendSocial;
+          setSocialLinks(backendSocial);
+          saveProfileSocial(backendSocial).catch(() => {});
+        }
       }
     } catch (err) {
       console.log('Error loading profile in UserProfileScreenClean:', err);
@@ -237,6 +248,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
       timeRange: string;
       aadhaarVerified: boolean;
       aadhaarMasked: string;
+      socialLinks: ProfileSocialLinks;
     }>) => {
       try {
         const payload = buildProfileUpsertPayload(
@@ -259,6 +271,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             aadhaarVerified: overrides?.aadhaarVerified ?? aadhaarVerified,
             aadhaarMasked: overrides?.aadhaarMasked ?? aadhaarMasked,
             comfort: null,
+            socialLinks: overrides?.socialLinks ?? socialLinks,
           },
           backendProfile,
         );
@@ -281,6 +294,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
       profileImage,
       profileName,
       professions,
+      socialLinks,
       startTime,
       vehicles,
     ],
@@ -344,10 +358,14 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     }, [loadBackendProfile, refreshGallery, refreshSocial]),
   );
 
-  const persistSocial = useCallback(async (next: ProfileSocialLinks) => {
-    setSocialLinks(next);
-    await saveProfileSocial(next);
-  }, []);
+  const persistSocial = useCallback(
+    async (next: ProfileSocialLinks) => {
+      setSocialLinks(next);
+      await saveProfileSocial(next);
+      await persistProfile({socialLinks: next});
+    },
+    [persistProfile],
+  );
 
   const handleAddSocialLink = useCallback(() => {
     const used = new Set(

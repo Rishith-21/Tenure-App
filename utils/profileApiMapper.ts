@@ -1,4 +1,5 @@
 import type {BackendProfile, ProfileUpsertInput} from './api';
+import type {ProfileSocialLinks} from './profileSocialStorage';
 import {calculateAgeFromDob} from './ageFromDob';
 
 export type ComfortZone = {
@@ -142,6 +143,7 @@ type BuildPayloadState = {
   aadhaarVerified: boolean;
   aadhaarMasked: string;
   comfort: ComfortZone | null;
+  socialLinks?: ProfileSocialLinks;
 };
 
 export function buildProfileUpsertPayload(
@@ -188,5 +190,9 @@ export function buildProfileUpsertPayload(
     comfortNotWith: state.comfort?.notComfortableWith || null,
     aadhaarVerified: state.aadhaarVerified,
     aadhaarMasked: state.aadhaarMasked || null,
+    instagram: state.socialLinks?.instagram?.trim() || null,
+    facebook: state.socialLinks?.facebook?.trim() || null,
+    youtube: state.socialLinks?.youtube?.trim() || null,
+    website: state.socialLinks?.website?.trim() || null,
   };
 }
