@@ -273,6 +273,8 @@ const HomeScreen = ({navigation}: any) => {
   const [headerAvatar, setHeaderAvatar] = useState<string | null>(null);
   const [headerTenureId, setHeaderTenureId] = useState('');
 
+  const fetchRequests = useMateRequestsStore(s => s.fetchRequests);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -282,10 +284,11 @@ const HomeScreen = ({navigation}: any) => {
         if (profile.profilePhoto) setHeaderAvatar(profile.profilePhoto);
         if (profile.tenureId) setHeaderTenureId(profile.tenureId);
       });
+      fetchRequests();
       return () => {
         active = false;
       };
-    }, []),
+    }, [fetchRequests]),
   );
 
   /* ── Stores ───────────────────────────────────────────── */

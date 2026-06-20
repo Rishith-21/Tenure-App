@@ -1,9 +1,15 @@
 import {create} from 'zustand';
 import {MateRequest, MateRequestStatus} from '../types/mateRequest';
-import {deriveMateUsername, formatPartnerLabel} from '../utils/requestLabels';
+import {deriveMateUsername} from '../utils/requestLabels';
+import {
+  sendMateRequest,
+  fetchMateRequests,
+  updateMateRequestStatus,
+  ApiMateRequest,
+} from '../utils/api';
 
 type AddSentPayload = {
-  mateUserId?: string;
+  mateUserId: string;
   mateName: string;
   mateTenureId: string;
   mateAvatar: string;
@@ -19,62 +25,99 @@ type MateRequestsState = {
   sent: MateRequest[];
   archivedReceived: MateRequest[];
   archivedSent: MateRequest[];
-  addSentRequest: (payload: AddSentPayload) => MateRequest;
-  cancelSentRequest: (id: string) => void;
-  updateRequestStatus: (id: string, status: MateRequestStatus) => void;
+  loading: boolean;
+  error: string | null;
+  fetchRequests: () => Promise<void>;
+  addSentRequest: (payload: AddSentPayload) => Promise<MateRequest>;
+  cancelSentRequest: (id: string) => Promise<void>;
+  updateRequestStatus: (id: string, status: 'confirmed' | 'declined') => Promise<void>;
   getRequestById: (id: string) => MateRequest | undefined;
 };
 
-const newId = () => `req-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const mapApiToFrontend = (req: ApiMateRequest): MateRequest => ({
+  id: req.id,
+  direction: req.direction,
+  mateUserId: req.mateUserId,
+  mateName: req.mateName,
+  mateUsername: deriveMateUsername(req.mateName, req.mateTenureId),
+  mateTenureId: req.mateTenureId,
+  mateAvatar: req.mateAvatar,
+  categoryId: req.categoryId,
+  categoryLabel: req.categoryLabel,
+  meetLocation: req.meetLocation,
+  fromDateTime: req.fromDateTime,
+  toDateTime: req.toDateTime,
+  message: req.message,
+  status: req.status,
+  sentAt: req.sentAt,
+  delivered: true,
+});
 
 export const useMateRequestsStore = create<MateRequestsState>((set, get) => ({
   received: [],
   sent: [],
   archivedReceived: [],
   archivedSent: [],
+  loading: false,
+  error: null,
 
-  addSentRequest: payload => {
-    const request: MateRequest = {
-      id: newId(),
-      direction: 'sent',
-      mateUserId: payload.mateUserId,
-      mateName: payload.mateName,
-      mateUsername: deriveMateUsername(payload.mateName, payload.mateTenureId),
-      mateTenureId: payload.mateTenureId,
-      mateAvatar: payload.mateAvatar,
+  fetchRequests: async () => {
+    set({loading: true, error: null});
+    try {
+      const data = await fetchMateRequests();
+      const allSent = data.sent.map(mapApiToFrontend);
+      const allReceived = data.received.map(mapApiToFrontend);
+
+      set({
+        sent: allSent.filter(r => r.status === 'pending' || r.status === 'confirmed'),
+        received: allReceived.filter(r => r.status === 'pending' || r.status === 'confirmed'),
+        archivedSent: allSent.filter(r => r.status === 'declined' || r.status === 'cancelled' || r.status === 'expired'),
+        archivedReceived: allReceived.filter(r => r.status === 'declined' || r.status === 'cancelled' || r.status === 'expired'),
+        loading: false,
+      });
+    } catch (err) {
+      console.log('Error fetching requests from backend:', err);
+      set({error: 'Failed to load requests from server', loading: false});
+    }
+  },
+
+  addSentRequest: async payload => {
+    const apiReq = await sendMateRequest({
+      receiverId: payload.mateUserId,
       categoryId: payload.categoryId,
-      categoryLabel: formatPartnerLabel(payload.categoryLabel),
+      categoryLabel: payload.categoryLabel,
       meetLocation: payload.meetLocation,
       fromDateTime: payload.fromDateTime,
       toDateTime: payload.toDateTime,
-      message: '',
-      status: 'pending',
-      delivered: true,
-      sentAt: new Date().toLocaleString('en-IN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    };
+    });
+    const request = mapApiToFrontend(apiReq);
     set(state => ({sent: [request, ...state.sent]}));
     return request;
   },
 
-  cancelSentRequest: id => {
+  cancelSentRequest: async id => {
+    const apiReq = await updateMateRequestStatus(id, 'cancelled');
+    const request = mapApiToFrontend(apiReq);
     set(state => ({
       sent: state.sent.filter(r => r.id !== id),
+      archivedSent: [request, ...state.archivedSent],
     }));
   },
 
-  updateRequestStatus: (id, status) => {
-    set(state => ({
-      received: state.received.map(r =>
-        r.id === id ? {...r, status} : r,
-      ),
-      sent: state.sent.map(r => (r.id === id ? {...r, status} : r)),
-    }));
+  updateRequestStatus: async (id, status) => {
+    const apiReq = await updateMateRequestStatus(id, status);
+    const request = mapApiToFrontend(apiReq);
+    set(state => {
+      if (status === 'confirmed') {
+        return {
+          received: state.received.map(r => (r.id === id ? request : r)),
+        };
+      }
+      return {
+        received: state.received.filter(r => r.id !== id),
+        archivedReceived: [request, ...state.archivedReceived],
+      };
+    });
   },
 
   getRequestById: id => {

@@ -338,3 +338,117 @@ export async function fetchMatePublicProfile(
     return null;
   }
 }
+
+export type SendRequestInput = {
+  receiverId: string;
+  categoryId: string;
+  categoryLabel: string;
+  meetLocation: string;
+  fromDateTime: string;
+  toDateTime: string;
+  message?: string | null;
+};
+
+export type ApiMateRequest = {
+  id: string;
+  direction: 'sent' | 'received';
+  mateUserId: string;
+  mateName: string;
+  mateTenureId: string;
+  mateAvatar: string;
+  categoryId: string;
+  categoryLabel: string;
+  meetLocation: string;
+  fromDateTime: string;
+  toDateTime: string;
+  message: string;
+  status: 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'expired';
+  sentAt: string;
+};
+
+export async function sendMateRequest(
+  payload: SendRequestInput,
+): Promise<ApiMateRequest> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/requests`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to send mate request');
+  }
+
+  const data = await response.json();
+  return data?.data?.request;
+}
+
+export async function fetchMateRequests(): Promise<{
+  sent: ApiMateRequest[];
+  received: ApiMateRequest[];
+}> {
+  const token = await getToken();
+  if (!token) {
+    return { sent: [], received: [] };
+  }
+
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/requests`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch mate requests');
+    }
+
+    const data = await response.json();
+    return (
+      data?.data ?? { sent: [], received: [] }
+    );
+  } catch (error) {
+    console.log('Error fetching mate requests:', error);
+    return { sent: [], received: [] };
+  }
+}
+
+export async function updateMateRequestStatus(
+  requestId: string,
+  status: 'confirmed' | 'declined' | 'cancelled',
+): Promise<ApiMateRequest> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/requests/${requestId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to update request status');
+  }
+
+  const data = await response.json();
+  return data?.data?.request;
+}

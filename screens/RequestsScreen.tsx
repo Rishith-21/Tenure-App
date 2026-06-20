@@ -10,7 +10,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {CompositeNavigationProp, useNavigation} from '@react-navigation/native';
+import {CompositeNavigationProp, useNavigation, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import RequestListCard from '../components/requests/RequestListCard';
@@ -57,6 +57,13 @@ const RequestsScreen = () => {
   const archivedReceived = useMateRequestsStore(s => s.archivedReceived);
   const archivedSent = useMateRequestsStore(s => s.archivedSent);
   const cancelSentRequest = useMateRequestsStore(s => s.cancelSentRequest);
+  const fetchRequests = useMateRequestsStore(s => s.fetchRequests);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchRequests();
+    }, [fetchRequests]),
+  );
 
   const pendingReceived = received.filter(r => r.status === 'pending');
   const pendingSent = sent.filter(
