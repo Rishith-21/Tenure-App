@@ -1,43 +1,101 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState, useCallback} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useAppDialog} from '../context/DialogContext';
+import {useFocusEffect} from '@react-navigation/native';
 import {useTheme} from '../context/ThemeContext';
+import {useAlertsStore} from '../store/alertsStore';
 import ScreenHeader from '../components/navigation/ScreenHeader';
+import {spacing, radius} from '../theme/tokens';
 
 const AlertsScreen = () => {
-  const {colors} = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  const {showAlert} = useAppDialog();
+  const {colors, tokens} = useTheme();
+  const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const insets = useSafeAreaInsets();
-  const [filterActive, setFilterActive] = useState(false);
+
+  const [filterActive, setFilterActive] = useState(false); // false = All activity, true = Payments only
+
+  const {alerts, loading, fetchAlerts, markAsRead, markAllAsRead} = useAlertsStore();
+
+  const currentFilter = filterActive ? 'payments' : 'all';
+
+  // Fetch alerts when screen comes into focus or when the active filter changes
+  useFocusEffect(
+    useCallback(() => {
+      fetchAlerts(currentFilter);
+    }, [currentFilter, fetchAlerts]),
+  );
+
+  const hasUnread = useMemo(() => alerts.some(a => !a.read), [alerts]);
+
+  // Helper to determine the badge icon and color based on alert kind
+  const getAlertVisuals = (kind: string) => {
+    switch (kind) {
+      case 'request_accepted':
+        return {
+          icon: '✓',
+          bg: '#E8F5E9', // Light green
+          color: '#2E7D32', // Dark green
+        };
+      case 'meet_canceled':
+      case 'meet_expired':
+        return {
+          icon: '✕',
+          bg: '#FFEBEE', // Light red
+          color: '#C62828', // Dark red
+        };
+      case 'payment_sent':
+        return {
+          icon: '↑',
+          bg: '#E3F2FD', // Light blue
+          color: '#1565C0', // Dark blue
+        };
+      case 'payment_received':
+        return {
+          icon: '↓',
+          bg: '#FFF8E1', // Light amber
+          color: '#F57F17', // Dark amber
+        };
+      case 'payment_canceled':
+        return {
+          icon: '⟳',
+          bg: '#ECEFF1', // Light blue-grey
+          color: '#37474F', // Dark blue-grey
+        };
+      default:
+        return {
+          icon: '•',
+          bg: colors.chip,
+          color: colors.textSecondary,
+        };
+    }
+  };
 
   return (
     <View style={styles.container}>
       <ScreenHeader
         title="Alerts"
         right={
-          <Pressable
-            onPress={() => {
-              setFilterActive(v => !v);
-              showAlert({
-                title: filterActive ? 'All activity' : 'Payments only',
-                message: filterActive
-                  ? 'Showing all history items.'
-                  : 'Filtered to payment-related alerts.',
-              });
-            }}
-            hitSlop={8}>
-            <View style={styles.filterWrap}>
-              <Text style={styles.filterIcon}>≡</Text>
-            </View>
-          </Pressable>
+          <View style={styles.headerRightWrap}>
+            {hasUnread && (
+              <Pressable onPress={() => markAllAsRead()} style={styles.markAllBtn}>
+                <Text style={styles.markAllText}>Mark all read</Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() => setFilterActive(v => !v)}
+              hitSlop={8}>
+              <View style={[styles.filterWrap, filterActive && styles.filterWrapActive]}>
+                <Text style={[styles.filterIcon, filterActive && styles.filterIconActive]}>≡</Text>
+              </View>
+            </Pressable>
+          </View>
         }
       />
 
@@ -77,14 +135,57 @@ const AlertsScreen = () => {
         contentContainerStyle={[
           styles.scroll,
           {paddingBottom: insets.bottom + 100},
-        ]}>
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>All quiet for now</Text>
-          <Text style={styles.emptyBody}>
-            Request updates, payments, and session alerts will appear here once
-            you start using Tenure.
-          </Text>
-        </View>
+        ]}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={() => fetchAlerts(currentFilter)}
+            tintColor={colors.brand}
+            colors={[colors.brand]}
+          />
+        }>
+        {alerts.length === 0 ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>All quiet for now</Text>
+            <Text style={styles.emptyBody}>
+              {filterActive
+                ? 'No payment alerts found.'
+                : 'Request updates, payments, and session alerts will appear here once you start using Tenure.'}
+            </Text>
+          </View>
+        ) : (
+          alerts.map(alert => {
+            const visuals = getAlertVisuals(alert.kind);
+            return (
+              <Pressable
+                key={alert.id}
+                onPress={() => {
+                  if (!alert.read) {
+                    markAsRead(alert.id);
+                  }
+                }}
+                style={[
+                  styles.alertCard,
+                  !alert.read && styles.alertCardUnread,
+                ]}>
+                <View style={[styles.badge, {backgroundColor: visuals.bg}]}>
+                  <Text style={[styles.badgeText, {color: visuals.color}]}>
+                    {visuals.icon}
+                  </Text>
+                </View>
+
+                <View style={styles.cardContent}>
+                  <Text style={[styles.messageText, !alert.read && styles.messageTextUnread]}>
+                    {alert.message}
+                  </Text>
+                  <Text style={styles.timestampText}>{alert.timestamp}</Text>
+                </View>
+
+                {!alert.read && <View style={styles.unreadDot} />}
+              </Pressable>
+            );
+          })
+        )}
       </ScrollView>
     </View>
   );
@@ -92,71 +193,157 @@ const AlertsScreen = () => {
 
 export default AlertsScreen;
 
-const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
+const createStyles = (
+  c: ReturnType<typeof useTheme>['colors'],
+  tokens: ReturnType<typeof useTheme>['tokens'],
+) =>
   StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: c.bg,
-  },
-  filterWrap: {
-    position: 'relative',
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filterIcon: {
-    fontSize: 20,
-    color: c.textSecondary,
-    fontWeight: '700',
-    letterSpacing: -1,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-  },
-  filterPillsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 12,
-  },
-  filterPill: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: c.border,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    backgroundColor: c.bgElevated,
-  },
-  filterPillActive: {
-    backgroundColor: c.bg,
-    borderColor: c.brand,
-  },
-  filterPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: c.textMuted,
-  },
-  filterPillTextActive: {
-    color: c.brand,
-  },
-  emptyWrap: {
-    marginTop: 48,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: c.text,
-    letterSpacing: -0.3,
-  },
-  emptyBody: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: '500',
-    color: c.textMuted,
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-});
+    container: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
+    headerRightWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    markAllBtn: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      backgroundColor: c.chip,
+      borderRadius: tokens.radius.pill,
+    },
+    markAllText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: c.brand,
+    },
+    filterWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bgElevated,
+    },
+    filterWrapActive: {
+      borderColor: c.brand,
+      backgroundColor: c.chipActive,
+    },
+    filterIcon: {
+      fontSize: 18,
+      color: c.textSecondary,
+      fontWeight: '700',
+    },
+    filterIconActive: {
+      color: c.bgElevated,
+    },
+    scroll: {
+      paddingHorizontal: 20,
+      paddingTop: 8,
+    },
+    filterPillsRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 20,
+      gap: 8,
+      marginBottom: 16,
+    },
+    filterPill: {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      borderRadius: tokens.radius.pill,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      backgroundColor: c.bgElevated,
+    },
+    filterPillActive: {
+      backgroundColor: c.bg,
+      borderColor: c.brand,
+    },
+    filterPillText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.textMuted,
+    },
+    filterPillTextActive: {
+      color: c.brand,
+    },
+    emptyWrap: {
+      marginTop: 64,
+      paddingHorizontal: 12,
+      alignItems: 'center',
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: c.text,
+      letterSpacing: -0.3,
+    },
+    emptyBody: {
+      marginTop: 10,
+      fontSize: 14,
+      fontWeight: '500',
+      color: c.textMuted,
+      textAlign: 'center',
+      lineHeight: 21,
+    },
+    alertCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: c.bgElevated,
+      borderRadius: tokens.radius.lg,
+      marginBottom: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      position: 'relative',
+    },
+    alertCardUnread: {
+      borderColor: c.brand,
+      backgroundColor: c.bg,
+      ...tokens.shadows.soft(c.shadow),
+    },
+    badge: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    badgeText: {
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    cardContent: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    messageText: {
+      fontSize: 14,
+      color: c.textSecondary,
+      fontWeight: '500',
+      lineHeight: 19,
+    },
+    messageTextUnread: {
+      color: c.text,
+      fontWeight: '700',
+    },
+    timestampText: {
+      marginTop: 4,
+      fontSize: 11,
+      color: c.textMuted,
+      fontWeight: '500',
+    },
+    unreadDot: {
+      position: 'absolute',
+      top: 16,
+      right: 16,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: c.brand,
+    },
+  });

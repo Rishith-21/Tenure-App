@@ -685,5 +685,81 @@ export async function uploadImage(fileUri: string): Promise<string> {
   throw new Error('Upload response was successful but url was missing');
 }
 
+export type ApiNotification = {
+  id: string;
+  userId: string;
+  kind: 'request_accepted' | 'meet_canceled' | 'payment_canceled' | 'meet_expired' | 'payment_sent' | 'payment_received';
+  message: string;
+  read: boolean;
+  createdAt: string;
+};
+
+/**
+ * Fetches notifications for the logged-in user.
+ */
+export async function fetchNotifications(filter?: 'all' | 'payments'): Promise<ApiNotification[]> {
+  const token = await getToken();
+  if (!token) return [];
+
+  const baseUrl = getBaseUrl();
+  const query = filter ? `?filter=${filter}` : '';
+
+  try {
+    const response = await fetch(`${baseUrl}/api/notifications${query}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) return [];
+    const resData = await response.json();
+    return resData.data?.notifications || [];
+  } catch (error) {
+    console.log('Error fetching notifications:', error);
+    return [];
+  }
+}
+
+/**
+ * Marks a specific notification as read.
+ */
+export async function markNotificationRead(id: string): Promise<void> {
+  const token = await getToken();
+  if (!token) return;
+
+  const baseUrl = getBaseUrl();
+  try {
+    await fetch(`${baseUrl}/api/notifications/${id}/read`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (error) {
+    console.log('Error marking notification as read:', error);
+  }
+}
+
+/**
+ * Marks all notifications for the user as read.
+ */
+export async function markAllNotificationsRead(): Promise<void> {
+  const token = await getToken();
+  if (!token) return;
+
+  const baseUrl = getBaseUrl();
+  try {
+    await fetch(`${baseUrl}/api/notifications/read-all`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (error) {
+    console.log('Error marking all notifications as read:', error);
+  }
+}
+
 
 
