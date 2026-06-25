@@ -221,10 +221,10 @@ const ConversationScreen = ({navigation, route}: any) => {
     [scrollToBottom],
   );
 
-  const startTenureSession = useCallback(async () => {
+  const startTenureSession = useCallback(async (otp: string) => {
     if (!requestId) return;
     try {
-      const backendSession = await startSession(requestId);
+      const backendSession = await startSession(requestId, otp);
       useActiveSessionStore.getState().restoreSession(backendSession);
       setSessionStarted(true);
       setElapsedSec(backendSession.elapsedSec);
@@ -565,9 +565,8 @@ const ConversationScreen = ({navigation, route}: any) => {
     if (!requestId) return;
     setConfirmingIncoming(true);
     try {
-      await updateMateRequestStatus(requestId, 'confirmed');
-      const otp = generateOtp();
-      setGeneratedOtp(otp);
+      const updatedReq = await updateMateRequestStatus(requestId, 'confirmed');
+      setGeneratedOtp(updatedReq.otp || '');
       setIncomingPhase('otp_display');
     } catch (err: any) {
       console.log('Error confirming request:', err);
@@ -577,7 +576,8 @@ const ConversationScreen = ({navigation, route}: any) => {
   };
 
   const simulateRequesterEnteredOtp = () => {
-    startTenureSession();
+    const expected = generatedOtp || routeSessionOtp || '1234';
+    startTenureSession(expected);
     appendMessage({
       sender: 'system',
       type: 'system',
@@ -619,7 +619,7 @@ const ConversationScreen = ({navigation, route}: any) => {
     }
 
     setOtpError('');
-    startTenureSession();
+    startTenureSession(code);
 
     if (messages.length === 0) {
       setMessages(seedMessages(mateName));

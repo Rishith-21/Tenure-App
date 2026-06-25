@@ -381,6 +381,7 @@ export type ApiMateRequest = {
   message: string;
   status: 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'expired';
   sentAt: string;
+  otp?: string | null;
 };
 
 export async function sendMateRequest(
@@ -560,7 +561,7 @@ export type BackendSession = {
   lastActionBy: string | null;
 };
 
-async function postSessionAction(requestId: string, action: string): Promise<BackendSession> {
+async function postSessionAction(requestId: string, action: string, body?: any): Promise<BackendSession> {
   const token = await getToken();
   if (!token) throw new Error('Not authenticated');
 
@@ -571,6 +572,7 @@ async function postSessionAction(requestId: string, action: string): Promise<Bac
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
+    body: body ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
@@ -582,8 +584,8 @@ async function postSessionAction(requestId: string, action: string): Promise<Bac
   return data?.data?.session;
 }
 
-export async function startSession(requestId: string): Promise<BackendSession> {
-  return postSessionAction(requestId, 'start');
+export async function startSession(requestId: string, otp: string): Promise<BackendSession> {
+  return postSessionAction(requestId, 'start', { otp });
 }
 
 export async function pauseSessionRequest(requestId: string): Promise<BackendSession> {
