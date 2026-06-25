@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import { getToken } from './authStorage';
+import { ChatMessage } from '../types/chat';
+
 
 const getBaseUrl = (): string => {
   if (Platform.OS === 'android') {
@@ -507,3 +509,36 @@ export async function deleteAccount(): Promise<void> {
     throw new Error(errorData.message || 'Failed to delete account');
   }
 }
+
+export const getWebSocketUrl = (): string => {
+  const baseUrl = getBaseUrl();
+  return baseUrl.replace(/^http/, 'ws');
+};
+
+export async function fetchRequestMessages(requestId: string): Promise<ChatMessage[]> {
+  const token = await getToken();
+  if (!token) {
+    return [];
+  }
+
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/requests/${requestId}/messages`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch request messages');
+    }
+
+    const data = await response.json();
+    return data?.data?.messages ?? [];
+  } catch (error) {
+    console.log('Error fetching request messages:', error);
+    return [];
+  }
+}
+

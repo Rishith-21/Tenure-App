@@ -10,6 +10,8 @@ export type ActiveTenureSession = {
   toDateTime: string;
   /** When the live tenure timer started (epoch ms). */
   startedAt: number;
+  mateUserId: string;
+  requestId: string;
 };
 
 type ActiveSessionState = {

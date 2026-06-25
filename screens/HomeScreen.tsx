@@ -494,6 +494,8 @@ const HomeScreen = ({navigation}: any) => {
       mateAvatar: activeSession.mateAvatar,
       sessionLabel: formatMeetRange(activeSession.fromDateTime, activeSession.toDateTime),
       initialElapsedSec: elapsedSec,
+      mateUserId: activeSession.mateUserId,
+      requestId: activeSession.requestId,
     });
   };
 
@@ -506,6 +508,8 @@ const HomeScreen = ({navigation}: any) => {
       sessionLabel: formatMeetRange(req.fromDateTime, req.toDateTime),
       meetDetails: req.categoryLabel,
       requestSentAt: req.sentAt,
+      mateUserId: req.mateUserId,
+      requestId: req.id,
     });
   };
 

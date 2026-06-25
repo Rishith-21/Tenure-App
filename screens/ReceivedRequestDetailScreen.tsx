@@ -54,6 +54,8 @@ const ReceivedRequestDetailScreen = ({navigation, route}: any) => {
       sessionLabel: formatMeetRange(request.fromDateTime, request.toDateTime),
       meetDetails: request.categoryLabel,
       requestSentAt: request.sentAt,
+      mateUserId: request.mateUserId,
+      requestId: request.id,
     });
   };
 

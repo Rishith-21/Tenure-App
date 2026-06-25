@@ -24,6 +24,9 @@ import {
   useActiveSessionStore,
 } from '../store/activeSessionStore';
 import {useTheme} from '../context/ThemeContext';
+import { fetchRequestMessages, getWebSocketUrl } from '../utils/api';
+import { getToken } from '../utils/authStorage';
+
 
 export type ChatFlow =
   | 'active'
@@ -42,6 +45,8 @@ export type ConversationParams = {
   initialElapsedSec?: number;
   /** OTP Eagle must enter (set when requester sends OTP). */
   sessionOtp?: string;
+  mateUserId?: string;
+  requestId?: string;
 };
 
 type TenureTimerStatus =
@@ -116,6 +121,8 @@ const ConversationScreen = ({navigation, route}: any) => {
     requestSentAt = '22-08-2026 12:31 PM',
     initialElapsedSec = 283,
     sessionOtp: routeSessionOtp,
+    mateUserId,
+    requestId,
   } = params;
 
   const [sessionStarted, setSessionStarted] = useState(chatFlow === 'active');
@@ -134,13 +141,13 @@ const ConversationScreen = ({navigation, route}: any) => {
   const [elapsedSec, setElapsedSec] = useState(initialElapsedSec);
   const [timerStatus, setTimerStatus] = useState<TenureTimerStatus>('running');
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    CHAT_SEED_FLOWS.includes(chatFlow) ? seedMessages(mateName) : [],
-  );
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const showChatComposer = CHAT_COMPOSER_FLOWS.includes(chatFlow);
   const scrollRef = useRef<ScrollView>(null);
   const autoStoppedRef = useRef(false);
   const startGlobalSession = useActiveSessionStore(s => s.startSession);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const {
     isRecording,
@@ -152,6 +159,29 @@ const ConversationScreen = ({navigation, route}: any) => {
   } = useVoiceRecorder();
 
   const isActiveSession = sessionStarted;
+
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({animated: true});
+    }, 120);
+  }, []);
+
+  const appendMessage = useCallback(
+    (partial: Omit<ChatMessage, 'id' | 'createdAt'>) => {
+      const entry: ChatMessage = {
+        id: createMessageId(),
+        createdAt: Date.now(),
+        ...partial,
+      };
+      setMessages(prev => {
+        if (prev.some(m => m.id === entry.id)) return prev;
+        return [...prev, entry];
+      });
+      scrollToBottom();
+      return entry;
+    },
+    [scrollToBottom],
+  );
 
   const startTenureSession = useCallback(() => {
     const [fromDateTime = sessionLabel, toDateTime = sessionLabel] =
@@ -167,6 +197,8 @@ const ConversationScreen = ({navigation, route}: any) => {
       fromDateTime,
       toDateTime,
       startedAt: Date.now(),
+      mateUserId: mateUserId || '',
+      requestId: requestId || '',
     });
   }, [
     mateAvatar,
@@ -174,27 +206,117 @@ const ConversationScreen = ({navigation, route}: any) => {
     mateTenureId,
     sessionLabel,
     startGlobalSession,
+    mateUserId,
+    requestId,
   ]);
 
-  const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({animated: true});
-    }, 120);
-  }, []);
+  // Load chat history
+  useEffect(() => {
+    if (!requestId) {
+      setMessages(CHAT_SEED_FLOWS.includes(chatFlow) ? seedMessages(mateName) : []);
+      return;
+    }
 
-  const appendMessage = useCallback(
-    (partial: Omit<ChatMessage, 'id' | 'createdAt'>) => {
-      const entry: ChatMessage = {
-        id: createMessageId(),
-        createdAt: Date.now(),
-        ...partial,
-      };
-      setMessages(prev => [...prev, entry]);
-      scrollToBottom();
-      return entry;
-    },
-    [scrollToBottom],
-  );
+    let active = true;
+    setLoadingHistory(true);
+    fetchRequestMessages(requestId)
+      .then(history => {
+        if (active) {
+          setMessages(history);
+          setLoadingHistory(false);
+        }
+      })
+      .catch(err => {
+        console.log('Error loading chat history:', err);
+        if (active) {
+          setLoadingHistory(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [requestId, chatFlow, mateName]);
+
+  // Handle WebSocket Connection
+  useEffect(() => {
+    if (!requestId) {
+      return;
+    }
+
+    let socket: WebSocket | null = null;
+    let keepAliveInterval: any;
+
+    const connect = async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+
+        const wsBaseUrl = getWebSocketUrl();
+        const wsUrl = `${wsBaseUrl}/chat?token=${encodeURIComponent(token)}&requestId=${encodeURIComponent(requestId)}`;
+
+        socket = new WebSocket(wsUrl);
+        wsRef.current = socket;
+
+        socket.onopen = () => {
+          console.log('WebSocket connected to chat');
+          keepAliveInterval = setInterval(() => {
+            if (socket?.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ type: 'ping', content: 'ping' }));
+            }
+          }, 30000);
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.event === 'message') {
+              const incomingMsg = data.message as ChatMessage;
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === incomingMsg.id)) return prev;
+                return [...prev, incomingMsg];
+              });
+              scrollToBottom();
+            } else if (data.event === 'ack') {
+              const ackMsg = data.message as ChatMessage;
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === ackMsg.id)) return prev;
+                return [...prev, ackMsg];
+              });
+              scrollToBottom();
+            } else if (data.error) {
+              console.log('WebSocket error payload:', data.error);
+            }
+          } catch (err) {
+            console.log('Error handling WebSocket event:', err);
+          }
+        };
+
+        socket.onerror = (err) => {
+          console.log('WebSocket connection error:', err);
+        };
+
+        socket.onclose = (event) => {
+          console.log('WebSocket closed:', event.code, event.reason);
+          clearInterval(keepAliveInterval);
+          if (event.code !== 1000 && event.code !== 1005) {
+            setTimeout(connect, 3000);
+          }
+        };
+      } catch (err) {
+        console.log('Error starting WebSocket connection:', err);
+      }
+    };
+
+    connect();
+
+    return () => {
+      if (socket) {
+        socket.close();
+      }
+      clearInterval(keepAliveInterval);
+    };
+  }, [requestId]);
 
   const handleSendText = useCallback(() => {
     const text = message.trim();
@@ -202,21 +324,39 @@ const ConversationScreen = ({navigation, route}: any) => {
       return;
     }
 
-    appendMessage({
-      sender: 'me',
-      type: 'text',
-      text,
-    });
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'text',
+          content: text,
+        })
+      );
+    } else {
+      appendMessage({
+        sender: 'me',
+        type: 'text',
+        text,
+      });
+    }
     setMessage('');
   }, [appendMessage, message]);
 
   const handleSendImage = useCallback(
     (uri: string) => {
-      appendMessage({
-        sender: 'me',
-        type: 'image',
-        imageUri: uri,
-      });
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'image',
+            content: uri,
+          })
+        );
+      } else {
+        appendMessage({
+          sender: 'me',
+          type: 'image',
+          imageUri: uri,
+        });
+      }
     },
     [appendMessage],
   );
@@ -229,12 +369,22 @@ const ConversationScreen = ({navigation, route}: any) => {
     if (isRecording) {
       const result = await stopRecording();
       if (result?.uri) {
-        appendMessage({
-          sender: 'me',
-          type: 'voice',
-          voiceUri: result.uri,
-          voiceDurationSec: result.durationSec,
-        });
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(
+            JSON.stringify({
+              type: 'voice',
+              content: result.uri,
+              voiceDuration: result.durationSec,
+            })
+          );
+        } else {
+          appendMessage({
+            sender: 'me',
+            type: 'voice',
+            voiceUri: result.uri,
+            voiceDurationSec: result.durationSec,
+          });
+        }
       }
       return;
     }
