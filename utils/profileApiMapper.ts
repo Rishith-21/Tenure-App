@@ -144,6 +144,7 @@ type BuildPayloadState = {
   aadhaarMasked: string;
   comfort: ComfortZone | null;
   socialLinks?: ProfileSocialLinks;
+  gallery?: string[];
 };
 
 export function buildProfileUpsertPayload(
@@ -190,6 +191,7 @@ export function buildProfileUpsertPayload(
     comfortNotWith: state.comfort?.notComfortableWith || null,
     aadhaarVerified: state.aadhaarVerified,
     aadhaarMasked: state.aadhaarMasked || null,
+    gallery: state.gallery ?? backendProfile?.gallery ?? [],
     instagram: state.socialLinks?.instagram?.trim() || null,
     facebook: state.socialLinks?.facebook?.trim() || null,
     youtube: state.socialLinks?.youtube?.trim() || null,

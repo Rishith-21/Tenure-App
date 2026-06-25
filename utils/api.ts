@@ -630,4 +630,60 @@ export async function fetchActiveSession(): Promise<BackendSession | null> {
   }
 }
 
+/**
+ * Uploads an image file to S3 (or local fallback).
+ * Returns the public URL of the uploaded image.
+ */
+export async function uploadImage(fileUri: string): Promise<string> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const baseUrl = getBaseUrl();
+  const formData = new FormData();
+
+  // Extract file name and extension
+  const uriParts = fileUri.split('/');
+  const fileName = uriParts[uriParts.length - 1] || 'photo.jpg';
+
+  // Map file extension to MIME type
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  let type = 'image/jpeg';
+  if (ext === 'png') {
+    type = 'image/png';
+  } else if (ext === 'gif') {
+    type = 'image/gif';
+  } else if (ext === 'webp') {
+    type = 'image/webp';
+  }
+
+  formData.append('file', {
+    uri: fileUri,
+    name: fileName,
+    type,
+  } as any);
+
+  const response = await fetch(`${baseUrl}/api/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Note: Do NOT set Content-Type header when uploading FormData!
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+  }
+
+  const resData = await response.json();
+  if (resData.status === 'success' && resData.data?.url) {
+    return resData.data.url;
+  }
+  throw new Error('Upload response was successful but url was missing');
+}
+
+
 

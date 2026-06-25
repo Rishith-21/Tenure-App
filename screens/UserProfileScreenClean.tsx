@@ -49,7 +49,7 @@ import {
 } from '../utils/profileSocialStorage';
 import {formatSocialDisplayUrl} from '../utils/mateSocialLinks';
 import {runWhenIdle} from '../hooks/runWhenIdle';
-import {fetchProfile, upsertProfile, type BackendProfile} from '../utils/api';
+import {fetchProfile, upsertProfile, uploadImage, type BackendProfile} from '../utils/api';
 import {buildProfileUpsertPayload} from '../utils/profileApiMapper';
 import {calculateAgeFromDob, formatAgeYears} from '../utils/ageFromDob';
 
@@ -218,6 +218,12 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         if (fetched.aadhaarVerified) setAadhaarVerified(true);
         if (fetched.aadhaarMasked) setAadhaarMasked(fetched.aadhaarMasked);
 
+        if (fetched.gallery) {
+          profileMountCache.gallery = fetched.gallery;
+          setGalleryImages(fetched.gallery);
+          saveProfileGallery(fetched.gallery).catch(() => {});
+        }
+
         const backendSocial: ProfileSocialLinks = {};
         if (fetched.instagram) backendSocial.instagram = fetched.instagram;
         if (fetched.facebook) backendSocial.facebook = fetched.facebook;
@@ -308,9 +314,18 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
       location?: string;
       categories?: string[];
     }) => {
+      let uploadedPhoto = updates.profilePhoto;
+      if (uploadedPhoto && (uploadedPhoto.startsWith('file://') || uploadedPhoto.startsWith('content://') || !uploadedPhoto.startsWith('http'))) {
+        try {
+          uploadedPhoto = await uploadImage(uploadedPhoto);
+          setProfileImage(uploadedPhoto);
+        } catch (uploadErr) {
+          console.log('Error uploading profile photo:', uploadErr);
+        }
+      }
       await persistProfile({
         profileName: updates.fullName,
-        profileImage: updates.profilePhoto,
+        profileImage: uploadedPhoto,
         hourlyRate:
           updates.hourlyRate !== undefined
             ? String(updates.hourlyRate)

@@ -19,7 +19,7 @@ import NativeDateTimePicker from '../components/ui/NativeDateTimePicker';
 import {setProfileSetupSkipped} from '../utils/profileSetupStorage';
 import {setOnboardingComplete} from '../utils/authStorage';
 import {resetToMainTabs} from '../navigation/navigationActions';
-import {upsertProfile} from '../utils/api';
+import {upsertProfile, uploadImage} from '../utils/api';
 import CategoryStepPanel from '../components/onboarding/CategoryStepPanel';
 import {
   OnboardingFooter,
@@ -282,6 +282,16 @@ const ProfileSetupScreen = ({navigation, route}: any) => {
         await setProfileSetupSkipped(true);
       } else {
         await setProfileSetupSkipped(false);
+
+        let uploadedPhoto = profileImage;
+        if (profileImage && (profileImage.startsWith('file://') || profileImage.startsWith('content://') || !profileImage.startsWith('http'))) {
+          try {
+            uploadedPhoto = await uploadImage(profileImage);
+          } catch (uploadErr) {
+            console.log('Error uploading profile photo during onboarding:', uploadErr);
+          }
+        }
+
         const payload = {
           fullName: name.trim() || 'Anonymous',
           dob: dobDate ? dobDate.toISOString() : new Date('2000-01-01').toISOString(),
@@ -293,7 +303,7 @@ const ProfileSetupScreen = ({navigation, route}: any) => {
           languages: languages.length > 0 ? languages : ['English'],
           categories: [...selectedCategoryIds, ...customCategories],
           hourlyRate: budget.trim() ? parseFloat(budget) : 50,
-          profilePhoto: profileImage,
+          profilePhoto: uploadedPhoto,
         };
         await upsertProfile(payload);
       }

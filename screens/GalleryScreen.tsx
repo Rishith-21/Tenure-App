@@ -20,6 +20,7 @@ import {
   loadProfileGallery,
   saveProfileGallery,
 } from '../utils/profileGalleryStorage';
+import {fetchProfile, upsertProfile, uploadImage} from '../utils/api';
 
 const COLS = 3;
 const GAP = 10;
@@ -75,6 +76,44 @@ const GalleryScreen = ({navigation, route}: Props) => {
     async (next: string[]) => {
       if (persistProfile) {
         await saveProfileGallery(next);
+        try {
+          const res = await fetchProfile();
+          if (res) {
+            await upsertProfile({
+              fullName: res.fullName,
+              dob: res.dob,
+              gender: res.gender,
+              country: res.country,
+              state: res.state,
+              district: res.district,
+              pinCode: res.pinCode,
+              languages: res.languages,
+              categories: res.categories,
+              hourlyRate: res.hourlyRate,
+              about: res.about,
+              vibes: res.vibes,
+              professions: res.professions,
+              vehicles: res.vehicles,
+              interests: res.interests,
+              availableDays: res.availableDays,
+              availableTimeRange: res.availableTimeRange,
+              bestTime: res.bestTime,
+              comfortPreferredPlaces: res.comfortPreferredPlaces,
+              comfortTravelRange: res.comfortTravelRange,
+              comfortWith: res.comfortWith,
+              comfortNotWith: res.comfortNotWith,
+              aadhaarVerified: res.aadhaarVerified,
+              aadhaarMasked: res.aadhaarMasked,
+              instagram: res.instagram,
+              facebook: res.facebook,
+              youtube: res.youtube,
+              website: res.website,
+              gallery: next,
+            });
+          }
+        } catch (err) {
+          console.log('Failed to sync gallery with backend database:', err);
+        }
       }
     },
     [persistProfile],
@@ -98,7 +137,19 @@ const GalleryScreen = ({navigation, route}: Props) => {
     const uris = result.assets
       .map(a => a.uri)
       .filter((u): u is string => Boolean(u));
-    const next = [...images, ...uris].slice(0, MAX_PHOTOS);
+
+    const uploadedUrls: string[] = [];
+    for (const uri of uris) {
+      try {
+        const url = await uploadImage(uri);
+        uploadedUrls.push(url);
+      } catch (err) {
+        console.log('Failed to upload gallery image:', err);
+        uploadedUrls.push(uri);
+      }
+    }
+
+    const next = [...images, ...uploadedUrls].slice(0, MAX_PHOTOS);
     setImages(next);
     await persist(next);
   };
