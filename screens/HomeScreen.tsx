@@ -49,7 +49,7 @@ import {
 import type {SearchFilters} from '../components/search/searchFilterConfig';
 import {useFocusEffect} from '@react-navigation/native';
 import {useMateRequestsStore} from '../store/mateRequestsStore';
-import {fetchProfile} from '../utils/api';
+import {fetchProfile, fetchActiveSession} from '../utils/api';
 import {MAX_TENURE_SECONDS, useActiveSessionStore} from '../store/activeSessionStore';
 import {useElapsedTimer} from '../hooks/useElapsedTimer';
 import {formatMeetRange} from '../utils/meetTime';
@@ -285,6 +285,10 @@ const HomeScreen = ({navigation}: any) => {
         if (profile.tenureId) setHeaderTenureId(profile.tenureId);
       });
       fetchRequests();
+      fetchActiveSession().then(session => {
+        if (!active) return;
+        useActiveSessionStore.getState().restoreSession(session);
+      });
       return () => {
         active = false;
       };

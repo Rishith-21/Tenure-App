@@ -24,7 +24,19 @@ import {
   useActiveSessionStore,
 } from '../store/activeSessionStore';
 import {useTheme} from '../context/ThemeContext';
-import { fetchRequestMessages, getWebSocketUrl } from '../utils/api';
+import {
+  fetchRequestMessages,
+  getWebSocketUrl,
+  startSession,
+  pauseSessionRequest,
+  pauseSessionConfirm,
+  resumeSessionRequest,
+  resumeSessionConfirm,
+  endSession,
+  fetchActiveSession,
+  fetchCurrentUser,
+  updateMateRequestStatus,
+} from '../utils/api';
 import { getToken } from '../utils/authStorage';
 
 
@@ -125,6 +137,20 @@ const ConversationScreen = ({navigation, route}: any) => {
     requestId,
   } = params;
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchCurrentUser().then(user => {
+      if (active && user) {
+        setCurrentUserId(user.id);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const [sessionStarted, setSessionStarted] = useState(chatFlow === 'active');
   const [outgoingPhase, setOutgoingPhase] =
     useState<OutgoingPhase>('awaiting_confirm');
@@ -148,6 +174,18 @@ const ConversationScreen = ({navigation, route}: any) => {
   const autoStoppedRef = useRef(false);
   const startGlobalSession = useActiveSessionStore(s => s.startSession);
   const wsRef = useRef<WebSocket | null>(null);
+
+  const activeSession = useActiveSessionStore(s => s.session);
+  const isMatchingSession = activeSession && activeSession.requestId === requestId;
+
+  // Sync activeSession to local screen states when it changes from store
+  useEffect(() => {
+    if (isMatchingSession && activeSession) {
+      setSessionStarted(true);
+      setElapsedSec(activeSession.elapsedSec);
+      setTimerStatus(activeSession.status as TenureTimerStatus);
+    }
+  }, [isMatchingSession, activeSession?.elapsedSec, activeSession?.status]);
 
   const {
     isRecording,
@@ -183,32 +221,19 @@ const ConversationScreen = ({navigation, route}: any) => {
     [scrollToBottom],
   );
 
-  const startTenureSession = useCallback(() => {
-    const [fromDateTime = sessionLabel, toDateTime = sessionLabel] =
-      sessionLabel.split(' - ');
-    setSessionStarted(true);
-    setElapsedSec(0);
-    setTimerStatus('running');
-    autoStoppedRef.current = false;
-    startGlobalSession({
-      mateName,
-      mateTenureId,
-      mateAvatar,
-      fromDateTime,
-      toDateTime,
-      startedAt: Date.now(),
-      mateUserId: mateUserId || '',
-      requestId: requestId || '',
-    });
-  }, [
-    mateAvatar,
-    mateName,
-    mateTenureId,
-    sessionLabel,
-    startGlobalSession,
-    mateUserId,
-    requestId,
-  ]);
+  const startTenureSession = useCallback(async () => {
+    if (!requestId) return;
+    try {
+      const backendSession = await startSession(requestId);
+      useActiveSessionStore.getState().restoreSession(backendSession);
+      setSessionStarted(true);
+      setElapsedSec(backendSession.elapsedSec);
+      setTimerStatus(backendSession.status as TenureTimerStatus);
+      autoStoppedRef.current = false;
+    } catch (err: any) {
+      console.log('Error starting session:', err);
+    }
+  }, [requestId]);
 
   // Load chat history
   useEffect(() => {
@@ -284,6 +309,19 @@ const ConversationScreen = ({navigation, route}: any) => {
                 return [...prev, ackMsg];
               });
               scrollToBottom();
+            } else if (data.event === 'session_update') {
+              const session = data.session;
+              useActiveSessionStore.getState().restoreSession(session);
+              if (session.status === 'ended') {
+                setSessionStarted(false);
+                setTimerStatus('ended');
+                appendMessage({
+                  sender: 'system',
+                  type: 'system',
+                  text: `Meet session ended. Total duration: ${formatTimerShort(session.elapsedSec)}. Total billing: ₹${session.billingAmount} (at ₹${session.hourlyRate}/hr).`,
+                });
+                useActiveSessionStore.getState().clearSession();
+              }
             } else if (data.error) {
               console.log('WebSocket error payload:', data.error);
             }
@@ -427,26 +465,80 @@ const ConversationScreen = ({navigation, route}: any) => {
     return () => clearInterval(id);
   }, [appendMessage, isActiveSession, timerStatus]);
 
-  const handleStopPress = () => {
+  const handleStopPress = async () => {
+    if (!requestId) return;
     if (timerStatus === 'running') {
-      setTimerStatus('pause_requested');
-      return;
-    }
-
-    if (timerStatus === 'paused') {
-      setTimerStatus('resume_requested');
+      try {
+        const backendSession = await pauseSessionRequest(requestId);
+        useActiveSessionStore.getState().restoreSession(backendSession);
+        appendMessage({
+          sender: 'system',
+          type: 'system',
+          text: `Requested a break. Waiting for ${mateName} to confirm.`,
+        });
+      } catch (err: any) {
+        console.log('Error requesting pause:', err);
+      }
+    } else if (timerStatus === 'paused') {
+      try {
+        const backendSession = await resumeSessionRequest(requestId);
+        useActiveSessionStore.getState().restoreSession(backendSession);
+        appendMessage({
+          sender: 'system',
+          type: 'system',
+          text: `Requested to resume. Waiting for ${mateName} to confirm.`,
+        });
+      } catch (err: any) {
+        console.log('Error requesting resume:', err);
+      }
     }
   };
 
-  const simulatePartnerConfirmedBreak = () => {
-    if (timerStatus === 'pause_requested') {
-      setTimerStatus('paused');
+  const handlePauseConfirmPress = async () => {
+    if (!requestId) return;
+    try {
+      const backendSession = await pauseSessionConfirm(requestId);
+      useActiveSessionStore.getState().restoreSession(backendSession);
+      appendMessage({
+        sender: 'system',
+        type: 'system',
+        text: 'Break confirmed. Billing paused.',
+      });
+    } catch (err: any) {
+      console.log('Error confirming pause:', err);
     }
   };
 
-  const simulatePartnerConfirmedResume = () => {
-    if (timerStatus === 'resume_requested') {
-      setTimerStatus('running');
+  const handleResumeConfirmPress = async () => {
+    if (!requestId) return;
+    try {
+      const backendSession = await resumeSessionConfirm(requestId);
+      useActiveSessionStore.getState().restoreSession(backendSession);
+      appendMessage({
+        sender: 'system',
+        type: 'system',
+        text: 'Resume confirmed. Hourly billing resumed.',
+      });
+    } catch (err: any) {
+      console.log('Error confirming resume:', err);
+    }
+  };
+
+  const handleEndSessionPress = async () => {
+    if (!requestId) return;
+    try {
+      const backendSession = await endSession(requestId);
+      useActiveSessionStore.getState().restoreSession(backendSession);
+      setSessionStarted(false);
+      setTimerStatus('ended');
+      appendMessage({
+        sender: 'system',
+        type: 'system',
+        text: `Meet session ended. Total duration: ${formatTimerShort(backendSession.elapsedSec)}. Total billing: ₹${backendSession.billingAmount} (at ₹${backendSession.hourlyRate}/hr).`,
+      });
+      useActiveSessionStore.getState().clearSession();
+    } catch (err: any) {
+      console.log('Error ending session:', err);
     }
   };
 
@@ -469,15 +561,19 @@ const ConversationScreen = ({navigation, route}: any) => {
     });
   };
 
-  const handleConfirmIncomingRequest = () => {
+  const handleConfirmIncomingRequest = async () => {
+    if (!requestId) return;
     setConfirmingIncoming(true);
-    const otp = generateOtp();
-
-    setTimeout(() => {
+    try {
+      await updateMateRequestStatus(requestId, 'confirmed');
+      const otp = generateOtp();
       setGeneratedOtp(otp);
       setIncomingPhase('otp_display');
+    } catch (err: any) {
+      console.log('Error confirming request:', err);
+    } finally {
       setConfirmingIncoming(false);
-    }, 1000);
+    }
   };
 
   const simulateRequesterEnteredOtp = () => {
@@ -724,55 +820,93 @@ const ConversationScreen = ({navigation, route}: any) => {
     return null;
   };
 
-  const renderTimerBar = () => (
-    <>
-      <View style={styles.timerBar}>
-        <View style={styles.timerPill}>
-          <Text style={styles.timerIcon}>⏱</Text>
-          <Text style={styles.timerValue}>
-            {formatTimerShort(elapsedSec)}
-          </Text>
+  const renderTimerBar = () => {
+    const hourlyRate = activeSession?.hourlyRate || 50;
+    const currentBilling = ((elapsedSec / 3600) * hourlyRate).toFixed(2);
+    const billingHint = isActiveSession
+      ? `Rate: ₹${hourlyRate}/hr  •  Current Billing: ₹${currentBilling}`
+      : null;
+
+    return (
+      <>
+        <View style={styles.timerBar}>
+          <View style={styles.timerPill}>
+            <Text style={styles.timerIcon}>⏱</Text>
+            <Text style={styles.timerValue}>
+              {formatTimerShort(elapsedSec)}
+            </Text>
+          </View>
+
+          {timerStatus !== 'ended' && (
+            <Pressable
+              style={[
+                styles.stopButton,
+                (timerStatus === 'pause_requested' || timerStatus === 'resume_requested') && styles.stopButtonMuted,
+              ]}
+              onPress={handleStopPress}
+              disabled={
+                timerStatus === 'pause_requested' ||
+                timerStatus === 'resume_requested'
+              }>
+              <Text style={styles.stopButtonText}>{timerButtonLabel}</Text>
+            </Pressable>
+          )}
+
+          {timerStatus !== 'ended' && (
+            <Pressable
+              style={styles.endButton}
+              onPress={handleEndSessionPress}>
+              <Text style={styles.endButtonText}>End</Text>
+            </Pressable>
+          )}
         </View>
 
-        <Pressable
-          style={[
-            styles.stopButton,
-            timerStatus !== 'running' && styles.stopButtonMuted,
-          ]}
-          onPress={handleStopPress}
-          disabled={
-            timerStatus === 'pause_requested' ||
-            timerStatus === 'resume_requested'
-          }>
-          <Text style={styles.stopButtonText}>{timerButtonLabel}</Text>
-        </Pressable>
-      </View>
+        {timerStatus === 'pause_requested' && (
+          activeSession?.lastActionBy !== currentUserId ? (
+            <Pressable
+              style={styles.confirmPartnerRow}
+              onPress={handlePauseConfirmPress}>
+              <Text style={styles.confirmPartnerText}>
+                Confirm Break Request from {mateName}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.waitingPartnerRow}>
+              <Text style={styles.waitingPartnerText}>
+                Waiting for {mateName} to confirm the break...
+              </Text>
+            </View>
+          )
+        )}
 
-      {timerStatus === 'pause_requested' && (
-        <Pressable
-          style={styles.demoConfirmRow}
-          onPress={simulatePartnerConfirmedBreak}>
-          <Text style={styles.demoConfirmText}>
-            (Demo) {mateName} confirms break
-          </Text>
-        </Pressable>
-      )}
+        {timerStatus === 'resume_requested' && (
+          activeSession?.lastActionBy !== currentUserId ? (
+            <Pressable
+              style={styles.confirmPartnerRow}
+              onPress={handleResumeConfirmPress}>
+              <Text style={styles.confirmPartnerText}>
+                Confirm Resume Request from {mateName}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.waitingPartnerRow}>
+              <Text style={styles.waitingPartnerText}>
+                Waiting for {mateName} to confirm resume...
+              </Text>
+            </View>
+          )
+        )}
 
-      {timerStatus === 'resume_requested' && (
-        <Pressable
-          style={styles.demoConfirmRow}
-          onPress={simulatePartnerConfirmedResume}>
-          <Text style={styles.demoConfirmText}>
-            (Demo) {mateName} confirms resume
-          </Text>
-        </Pressable>
-      )}
+        {billingHint ? (
+          <Text style={styles.billingHint}>{billingHint}</Text>
+        ) : null}
 
-      {statusHint ? (
-        <Text style={styles.statusHint}>{statusHint}</Text>
-      ) : null}
-    </>
-  );
+        {statusHint ? (
+          <Text style={styles.statusHint}>{statusHint}</Text>
+        ) : null}
+      </>
+    );
+  };
 
   return (
     <>
@@ -1073,15 +1207,29 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       fontWeight: '600',
       textTransform: 'lowercase',
     },
-    demoConfirmRow: {
+    confirmPartnerRow: {
       backgroundColor: c.chip,
+      borderRadius: 10,
+      padding: 10,
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: c.primary,
+    },
+    confirmPartnerText: {
+      fontSize: 12,
+      color: c.primary,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    waitingPartnerRow: {
+      backgroundColor: c.card,
       borderRadius: 10,
       padding: 10,
       marginBottom: 6,
       borderWidth: 1,
       borderColor: c.border,
     },
-    demoConfirmText: {
+    waitingPartnerText: {
       fontSize: 12,
       color: c.textSecondary,
       textAlign: 'center',
@@ -1101,6 +1249,25 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       fontSize: 12,
       color: c.textHint,
       marginBottom: 10,
+      marginLeft: 4,
+    },
+    endButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 11,
+      borderRadius: 10,
+      backgroundColor: c.danger,
+      marginLeft: 8,
+    },
+    endButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    billingHint: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.primary,
+      marginBottom: 6,
       marginLeft: 4,
     },
     chatArea: {flex: 1},

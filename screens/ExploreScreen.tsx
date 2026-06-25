@@ -23,6 +23,8 @@ import {formatMeetRange} from '../utils/meetTime';
 import {buildHomeMeetItems, HomeMeetItem} from '../utils/homeMeetItems';
 import {MateRequest} from '../types/mateRequest';
 import {MAIN_TAB_BAR_RESERVE} from '../navigation/tabBarLayout';
+import {useFocusEffect} from '@react-navigation/native';
+import {fetchActiveSession} from '../utils/api';
 
 const {width: SW} = Dimensions.get('window');
 const H_MARGIN = 16;
@@ -67,6 +69,19 @@ const ExploreScreen = ({navigation}: any) => {
   const activeSession = useActiveSessionStore(s => s.session);
   const clearSession  = useActiveSessionStore(s => s.clearSession);
   const elapsedSec    = useElapsedTimer(activeSession?.startedAt ?? null, Boolean(activeSession));
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      fetchActiveSession().then(session => {
+        if (!active) return;
+        useActiveSessionStore.getState().restoreSession(session);
+      });
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {
     if (activeSession && elapsedSec >= MAX_TENURE_SECONDS) {

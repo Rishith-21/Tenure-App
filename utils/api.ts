@@ -542,3 +542,90 @@ export async function fetchRequestMessages(requestId: string): Promise<ChatMessa
   }
 }
 
+export type BackendSession = {
+  id: string;
+  requestId: string;
+  senderId: string;
+  receiverId: string;
+  status: 'running' | 'pause_requested' | 'paused' | 'resume_requested' | 'ended';
+  startedAt: number;
+  endedAt: number | null;
+  elapsedSec: number;
+  mateUserId: string;
+  mateName: string;
+  mateTenureId: string;
+  mateAvatar: string;
+  hourlyRate: number;
+  billingAmount: number;
+  lastActionBy: string | null;
+};
+
+async function postSessionAction(requestId: string, action: string): Promise<BackendSession> {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/requests/${requestId}/session/${action}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `Failed to perform ${action}`);
+  }
+
+  const data = await response.json();
+  return data?.data?.session;
+}
+
+export async function startSession(requestId: string): Promise<BackendSession> {
+  return postSessionAction(requestId, 'start');
+}
+
+export async function pauseSessionRequest(requestId: string): Promise<BackendSession> {
+  return postSessionAction(requestId, 'pause-request');
+}
+
+export async function pauseSessionConfirm(requestId: string): Promise<BackendSession> {
+  return postSessionAction(requestId, 'pause-confirm');
+}
+
+export async function resumeSessionRequest(requestId: string): Promise<BackendSession> {
+  return postSessionAction(requestId, 'resume-request');
+}
+
+export async function resumeSessionConfirm(requestId: string): Promise<BackendSession> {
+  return postSessionAction(requestId, 'resume-confirm');
+}
+
+export async function endSession(requestId: string): Promise<BackendSession> {
+  return postSessionAction(requestId, 'end');
+}
+
+export async function fetchActiveSession(): Promise<BackendSession | null> {
+  const token = await getToken();
+  if (!token) return null;
+
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/users/active-session`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.data?.session || null;
+  } catch (error) {
+    console.log('Error fetching active session:', error);
+    return null;
+  }
+}
+
+
