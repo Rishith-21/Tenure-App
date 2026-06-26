@@ -13,7 +13,7 @@ import {
 
 const pickerOptions = {
   mediaType: 'photo' as const,
-  quality: 0.85 as const,
+  quality: 0.8 as const,
   selectionLimit: 1,
 };
 

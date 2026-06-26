@@ -81,6 +81,10 @@ export type BackendProfile = {
   facebook: string | null;
   youtube: string | null;
   website: string | null;
+  instantAvailable: boolean;
+  instantAvailableUntil: string | null;
+  instantCategories: string[];
+  instantNote: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -121,6 +125,10 @@ export type ProfileUpsertInput = {
   facebook?: string | null;
   youtube?: string | null;
   website?: string | null;
+  instantAvailable?: boolean;
+  instantAvailableUntil?: string | null;
+  instantCategories?: string[];
+  instantNote?: string | null;
 };
 
 export async function fetchCurrentUser(): Promise<BackendUser | null> {
@@ -246,6 +254,10 @@ export type DiscoverMateApi = {
   facebook: string | null;
   youtube: string | null;
   website: string | null;
+  instantAvailable: boolean;
+  instantAvailableUntil: string | null;
+  instantCategories: string[];
+  instantNote: string | null;
 };
 
 export type DiscoverSearchParams = {
@@ -382,6 +394,7 @@ export type ApiMateRequest = {
   status: 'pending' | 'confirmed' | 'declined' | 'cancelled' | 'expired';
   sentAt: string;
   otp?: string | null;
+  requesterGender?: string | null;
 };
 
 export async function sendMateRequest(
@@ -543,6 +556,87 @@ export async function fetchRequestMessages(requestId: string): Promise<ChatMessa
   }
 }
 
+export async function fetchInstantMates(
+  params: DiscoverSearchParams = {},
+): Promise<DiscoverMateApi[]> {
+  const token = await getToken();
+  if (!token) {
+    return [];
+  }
+
+  const searchParams = new URLSearchParams();
+  if (params.q?.trim()) {
+    searchParams.set('q', params.q.trim());
+  }
+  if (params.district) {
+    searchParams.set('district', params.district);
+  }
+  if (params.category) {
+    searchParams.set('category', params.category);
+  }
+  if (params.gender && params.gender !== 'all') {
+    searchParams.set('gender', params.gender);
+  }
+  if (params.ageRange && params.ageRange !== 'all') {
+    searchParams.set('ageRange', params.ageRange);
+  }
+  if (params.hourlyRateRange && params.hourlyRateRange !== 'all') {
+    searchParams.set('hourlyRateRange', params.hourlyRateRange);
+  }
+  if (params.customHourlyRateMin != null) {
+    searchParams.set('customHourlyRateMin', String(params.customHourlyRateMin));
+  }
+  if (params.customHourlyRateMax != null) {
+    searchParams.set('customHourlyRateMax', String(params.customHourlyRateMax));
+  }
+
+  const baseUrl = getBaseUrl();
+  const qs = searchParams.toString();
+  const url = `${baseUrl}/api/users/discover/instants${qs ? `?${qs}` : ''}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch instant mates');
+    }
+
+    const data = await response.json();
+    return data?.data?.mates ?? [];
+  } catch (error) {
+    console.log('Error fetching instant mates:', error);
+    throw error;
+  }
+}
+
+export async function deleteRequestMessage(
+  requestId: string,
+  messageId: string,
+): Promise<void> {
+  const token = await getToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/requests/${requestId}/messages/${messageId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete message');
+  }
+}
+
 export type BackendSession = {
   id: string;
   requestId: string;
@@ -551,6 +645,8 @@ export type BackendSession = {
   status: 'running' | 'pause_requested' | 'paused' | 'resume_requested' | 'ended';
   startedAt: number;
   endedAt: number | null;
+  fromDateTime?: string;
+  toDateTime?: string;
   elapsedSec: number;
   mateUserId: string;
   mateName: string;

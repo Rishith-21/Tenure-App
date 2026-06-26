@@ -22,8 +22,17 @@ export type HomeMeetItem = {
   timerText?: string;
 };
 
-const incomingCaption = (req: MateRequest) =>
-  req.requesterPronoun === 'he' ? 'He requested' : 'She requested';
+const incomingCaption = (req: MateRequest) => {
+  switch (req.requesterPronoun) {
+    case 'he':
+      return 'He requested';
+    case 'she':
+      return 'She requested';
+    case 'they':
+    default:
+      return 'They requested';
+  }
+};
 
 export function buildHomeMeetItems(
   activeSession: ActiveTenureSession | null,
@@ -32,11 +41,16 @@ export function buildHomeMeetItems(
   elapsedSec: number,
 ): HomeMeetItem[] {
   const items: HomeMeetItem[] = [];
+  const activeRequestId = activeSession?.requestId;
+  const activeRequest = activeRequestId
+    ? [...received, ...sent].find(req => req.id === activeRequestId)
+    : undefined;
 
   if (activeSession) {
     items.push({
-      id: 'active-tenure',
+      id: activeSession.requestId,
       kind: 'active',
+      request: activeRequest,
       mateName: activeSession.mateName,
       mateAvatar: activeSession.mateAvatar,
       mateTenureId: activeSession.mateTenureId,
@@ -45,15 +59,20 @@ export function buildHomeMeetItems(
         activeSession.fromDateTime,
         activeSession.toDateTime,
       ),
-      coordinate: getMeetCoordinate('active-swan'),
+      coordinate: getMeetCoordinate(activeSession.requestId, activeRequest),
       pillLabel: 'LIVE',
       isLive: true,
       timerText: formatElapsedHMS(elapsedSec),
     });
   }
 
-  const confirmedReceived = received.filter(r => r.status === 'confirmed');
-  const confirmedSent = sent.filter(r => r.status === 'confirmed');
+  const isNotActiveRequest = (req: MateRequest) => req.id !== activeRequestId;
+  const confirmedReceived = received.filter(
+    r => r.status === 'confirmed' && isNotActiveRequest(r),
+  );
+  const confirmedSent = sent.filter(
+    r => r.status === 'confirmed' && isNotActiveRequest(r),
+  );
   const pendingReceived = received.filter(r => r.status === 'pending');
   const pendingSent = sent.filter(r => r.status === 'pending');
 

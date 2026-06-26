@@ -112,6 +112,7 @@ const MatePublicProfileView = ({
           <MatePassportHero
             name={profile.name}
             avatarUri={profile.avatar}
+            galleryImages={profile.gallery}
             professionLine={headlineSubtitle}
             district={profile.district}
             fullLocation={profile.location}
@@ -126,7 +127,7 @@ const MatePublicProfileView = ({
             onGalleryPress={() =>
               navigation.navigate('Gallery', {
                 title: `${profile.name} — Gallery`,
-                images: profile.avatar ? [profile.avatar] : [],
+                images: profile.gallery,
                 canEdit: false,
                 persistProfile: false,
               })

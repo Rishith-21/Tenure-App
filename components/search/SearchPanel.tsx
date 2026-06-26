@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {SearchMateUser} from '../../data/mockSearchResults';
-import {searchMates} from '../../utils/api';
+import {fetchInstantMates, searchMates} from '../../utils/api';
 import {mapDiscoverMateToSearchUser} from '../../utils/discoverApiMapper';
 import {getMateCategoryLabel} from '../../utils/mateCategoryUtils';
 import {
@@ -49,6 +49,22 @@ const GRID_PAD = 20;
 const CARD_W = (SCREEN_W - GRID_PAD * 2 - GRID_GAP) / 2;
 
 const normalize = (text: string) => text.trim().toLowerCase();
+type PanelMode = 'search' | 'instants';
+
+const formatInstantUntil = (value?: string | null): string => {
+  if (!value) {
+    return 'Live now';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Live now';
+  }
+  return date.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
 
 const matchesQuickFilters = (
   user: SearchMateUser,
@@ -113,16 +129,21 @@ const SearchPanel = ({
   );
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [apiUsers, setApiUsers] = useState<SearchMateUser[]>([]);
+  const [mode, setMode] = useState<PanelMode>('search');
+  const [instantUsers, setInstantUsers] = useState<SearchMateUser[]>([]);
+  const [instantLoading, setInstantLoading] = useState(false);
+  const [instantError, setInstantError] = useState<string | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const activeFilterCount = getActiveFilterCount(filters);
   const hasQuery = normalize(query).length > 0;
+  const isInstantsMode = mode === 'instants';
   const showResults =
-    hasQuery || activeFilterCount > 0 || quickFilters.size > 0;
+    mode === 'search' && (hasQuery || activeFilterCount > 0 || quickFilters.size > 0);
 
   useEffect(() => {
-    if (!showResults) {
+    if (mode !== 'search' || !showResults) {
       setApiUsers([]);
       setSearchError(null);
       setSearchLoading(false);
@@ -163,7 +184,41 @@ const SearchPanel = ({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [showResults, query, filters]);
+  }, [mode, showResults, query, filters]);
+
+  useEffect(() => {
+    if (!isInstantsMode) {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setInstantLoading(true);
+      setInstantError(null);
+      try {
+        const mates = await fetchInstantMates({
+          district: filters.district,
+        });
+        if (!cancelled) {
+          setInstantUsers(mates.map(mapDiscoverMateToSearchUser));
+        }
+      } catch {
+        if (!cancelled) {
+          setInstantUsers([]);
+          setInstantError('Could not load Instants. Check your connection.');
+        }
+      } finally {
+        if (!cancelled) {
+          setInstantLoading(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isInstantsMode, filters.district]);
 
   const filteredUsers = useMemo(() => {
     if (!showResults) {
@@ -171,6 +226,11 @@ const SearchPanel = ({
     }
     return apiUsers.filter(user => matchesQuickFilters(user, quickFilters));
   }, [apiUsers, quickFilters, showResults]);
+
+  const filteredInstantUsers = useMemo(
+    () => instantUsers.filter(user => matchesQuickFilters(user, quickFilters)),
+    [instantUsers, quickFilters],
+  );
 
   const toggleQuickFilter = useCallback(
     (id: QuickFilterId) => {
@@ -306,35 +366,41 @@ const SearchPanel = ({
       <SearchHeader
         onBack={onClose}
         topInset={insets.top}
-        showSubtitle={!showResults}
+        showSubtitle={isInstantsMode || !showResults}
+        mode={mode}
+        onModeChange={setMode}
       />
-      <SearchInput
-        value={query}
-        onChangeText={setQuery}
-        inputRef={inputRef}
-        autoFocus={autoFocus}
-        onOpenFilters={onOpenFilters}
-        onClear={clearAll}
-        showClear={canClear}
-        filterActive={activeFilterCount > 0}
-        activeFilterCount={activeFilterCount}
-      />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-        keyboardShouldPersistTaps="handled"
-        style={styles.chipScroll}
-        nestedScrollEnabled>
-        {QUICK_FILTER_CHIPS.map(chip => (
-          <FilterChip
-            key={chip.id}
-            label={chip.label}
-            selected={quickFilters.has(chip.id)}
-            onPress={() => toggleQuickFilter(chip.id)}
+      {!isInstantsMode ? (
+        <>
+          <SearchInput
+            value={query}
+            onChangeText={setQuery}
+            inputRef={inputRef}
+            autoFocus={autoFocus}
+            onOpenFilters={onOpenFilters}
+            onClear={clearAll}
+            showClear={canClear}
+            filterActive={activeFilterCount > 0}
+            activeFilterCount={activeFilterCount}
           />
-        ))}
-      </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+            keyboardShouldPersistTaps="handled"
+            style={styles.chipScroll}
+            nestedScrollEnabled>
+            {QUICK_FILTER_CHIPS.map(chip => (
+              <FilterChip
+                key={chip.id}
+                label={chip.label}
+                selected={quickFilters.has(chip.id)}
+                onPress={() => toggleQuickFilter(chip.id)}
+              />
+            ))}
+          </ScrollView>
+        </>
+      ) : null}
     </View>
   ) : null;
 
@@ -508,6 +574,92 @@ const SearchPanel = ({
     </View>
   );
 
+  const instantsTitle =
+    filteredInstantUsers.length === 0
+      ? 'No live mates yet'
+      : filteredInstantUsers.length === 1
+        ? '1 instant mate'
+        : `${filteredInstantUsers.length} instant mates`;
+
+  const instantsContent = (
+    <View style={styles.resultsWrap}>
+      <View style={styles.instantsHero}>
+        <View style={styles.instantsHeroTop}>
+          <View style={styles.liveDot} />
+          <Text style={styles.instantsHeroKicker}>Live now</Text>
+        </View>
+        <Text style={styles.instantsHeroTitle}>Instants</Text>
+        <Text style={styles.instantsHeroSub}>
+          Mates who opened a short live window for requests right now.
+        </Text>
+      </View>
+
+      <View style={styles.resultsHeader}>
+        <View style={styles.resultsHeaderText}>
+          <Text style={styles.resultsCount}>{instantsTitle}</Text>
+          <Text style={styles.resultsSubtitle} numberOfLines={2}>
+            Ready for quick mate requests
+          </Text>
+        </View>
+      </View>
+
+      <FlatList
+        data={filteredInstantUsers}
+        keyExtractor={item => item.id}
+        style={styles.resultsList}
+        contentContainerStyle={[
+          styles.listContent,
+          {paddingBottom: bottomPad},
+          filteredInstantUsers.length === 0 && styles.listContentEmpty,
+        ]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        ItemSeparatorComponent={() => <View style={styles.listGap} />}
+        ListEmptyComponent={
+          instantLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="small" color={S.primary} />
+              <Text style={styles.loadingText}>Checking who is live...</Text>
+            </View>
+          ) : instantError ? (
+            <EmptyState title="Instants unavailable" message={instantError} />
+          ) : (
+            <EmptyState
+              title="No instant mates right now"
+              message="When someone taps Go live on their profile, they will appear here until their live window ends."
+            />
+          )
+        }
+        renderItem={({item}) => (
+          <View
+            style={[
+              styles.instantResultCard,
+              getSearchShadowCard(elevated),
+            ]}>
+            <ResultCard
+              user={item}
+              available
+              onPress={() => openMateProfile(item.id)}
+            />
+            <View style={styles.instantFooter}>
+              <View>
+                <Text style={styles.instantUntil}>
+                  Live until {formatInstantUntil(item.instantAvailableUntil)}
+                </Text>
+                {item.instantNote ? (
+                  <Text style={styles.instantNote} numberOfLines={2}>
+                    {item.instantNote}
+                  </Text>
+                ) : null}
+              </View>
+              <Text style={styles.instantCta}>View</Text>
+            </View>
+          </View>
+        )}
+      />
+    </View>
+  );
+
   return (
     <SearchElevationProvider value={elevated}>
     <KeyboardAvoidingView
@@ -522,7 +674,11 @@ const SearchPanel = ({
           },
         ]}>
         {headerBlock}
-        {showResults ? resultsContent : browseContent}
+        {isInstantsMode
+          ? instantsContent
+          : showResults
+            ? resultsContent
+            : browseContent}
       </View>
     </KeyboardAvoidingView>
     </SearchElevationProvider>
@@ -656,6 +812,46 @@ const styles = StyleSheet.create({
     marginTop: 4,
     minHeight: 0,
   },
+  instantsHero: {
+    backgroundColor: S.card,
+    borderWidth: 1,
+    borderColor: S.border,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 14,
+  },
+  instantsHeroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 6,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: S.success,
+  },
+  instantsHeroKicker: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: S.success,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  instantsHeroTitle: {
+    fontSize: 19,
+    fontWeight: '900',
+    color: S.text,
+    letterSpacing: -0.3,
+  },
+  instantsHeroSub: {
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: '500',
+    color: S.textSecondary,
+    lineHeight: 18,
+  },
   resultsList: {
     flex: 1,
   },
@@ -708,6 +904,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: S.textSecondary,
+  },
+  instantResultCard: {
+    backgroundColor: S.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: S.border,
+    overflow: 'hidden',
+  },
+  instantFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: S.border,
+  },
+  instantUntil: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: S.success,
+  },
+  instantNote: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500',
+    color: S.textSecondary,
+    maxWidth: SCREEN_W - GRID_PAD * 2 - 92,
+  },
+  instantCta: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: S.primary,
   },
   pressed: {opacity: 0.7},
 });

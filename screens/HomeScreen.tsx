@@ -124,6 +124,8 @@ const MeetDeckCard = ({
     : item.pillLabel === 'WAITING' || item.pillLabel === 'CONFIRM?' ? K.accent
     : isLive ? K.live
     : K.textMuted;
+  const avatarUri = item.mateAvatar?.trim();
+  const avatarInitial = item.mateName.charAt(0).toUpperCase();
 
   const metaLine = [item.categoryLabel, item.dateLabel].filter(Boolean).join(' · ');
 
@@ -161,7 +163,13 @@ const MeetDeckCard = ({
           ]}
           onPress={() => onPress(item)}>
           <View style={styles.deckTop}>
-            <Image source={{uri: item.mateAvatar}} style={styles.deckAvatar} />
+            {avatarUri ? (
+              <Image source={{uri: avatarUri}} style={styles.deckAvatar} />
+            ) : (
+              <View style={[styles.deckAvatar, styles.deckAvatarPlaceholder]}>
+                <Text style={styles.deckAvatarInitial}>{avatarInitial}</Text>
+              </View>
+            )}
             <View style={styles.deckInfo}>
               <Text style={styles.deckName} numberOfLines={1}>{item.mateName}</Text>
               <Text style={styles.deckMeta} numberOfLines={1}>{metaLine}</Text>
@@ -418,7 +426,7 @@ const HomeScreen = ({navigation}: any) => {
   );
 
   /* ── Navigation ───────────────────────────────────────── */
-  const stackNav = () => navigation.getParent();
+  const stackNav = useCallback(() => navigation.getParent(), [navigation]);
 
   const openProfile = useCallback(() => {
     navigation.navigate('UserProfile');
@@ -489,7 +497,7 @@ const HomeScreen = ({navigation}: any) => {
     [navigation],
   );
 
-  const openActiveChat = () => {
+  const openActiveChat = useCallback(() => {
     if (!activeSession) { return; }
     stackNav()?.navigate('Conversation', {
       chatFlow: 'active',
@@ -501,9 +509,9 @@ const HomeScreen = ({navigation}: any) => {
       mateUserId: activeSession.mateUserId,
       requestId: activeSession.requestId,
     });
-  };
+  }, [activeSession, elapsedSec, stackNav]);
 
-  const openConfirmedChat = (req: MateRequest) => {
+  const openConfirmedChat = useCallback((req: MateRequest) => {
     stackNav()?.navigate('Conversation', {
       chatFlow: req.direction === 'received' ? 'incoming_request' : 'outgoing_request',
       mateName: req.mateName,
@@ -512,19 +520,20 @@ const HomeScreen = ({navigation}: any) => {
       sessionLabel: formatMeetRange(req.fromDateTime, req.toDateTime),
       meetDetails: req.categoryLabel,
       requestSentAt: req.sentAt,
+      sessionOtp: req.otp ?? undefined,
       mateUserId: req.mateUserId,
       requestId: req.id,
     });
-  };
+  }, [stackNav]);
 
-  const handleMeetPress = (item: HomeMeetItem) => {
+  const handleMeetPress = useCallback((item: HomeMeetItem) => {
     if (item.isLive) { openActiveChat(); return; }
     const req = item.request;
     if (!req) { return; }
     if (req.status === 'confirmed') { openConfirmedChat(req); }
     else if (req.direction === 'sent') { stackNav()?.navigate('SentRequestDetail', {requestId: req.id}); }
     else { stackNav()?.navigate('ReceivedRequestDetail', {requestId: req.id}); }
-  };
+  }, [openActiveChat, openConfirmedChat, stackNav]);
 
   /* ── Search overlay ───────────────────────────────────── */
   const focusInput = useCallback(() => { searchInputRef.current?.focus(); }, []);
@@ -1143,6 +1152,16 @@ const styles = StyleSheet.create({
     width: 52, height: 52, borderRadius: 26,
     backgroundColor: K.surface,
     borderWidth: 1.5, borderColor: K.borderHigh,
+  },
+  deckAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: K.accentSoft,
+  },
+  deckAvatarInitial: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: K.accent,
   },
   deckInfo: {flex: 1, minWidth: 0},
   deckName: {fontSize: 17, fontWeight: '800', color: K.text, letterSpacing: -0.3},

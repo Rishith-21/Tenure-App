@@ -10,6 +10,8 @@ export type SearchMateUser = {
   age: number;
   rating?: number;
   isNew?: boolean;
+  instantAvailableUntil?: string | null;
+  instantNote?: string | null;
 };
 
 /** Populated from the search API when companion discovery is live. */

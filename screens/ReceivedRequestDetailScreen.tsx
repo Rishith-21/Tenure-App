@@ -54,6 +54,7 @@ const ReceivedRequestDetailScreen = ({navigation, route}: any) => {
       sessionLabel: formatMeetRange(request.fromDateTime, request.toDateTime),
       meetDetails: request.categoryLabel,
       requestSentAt: request.sentAt,
+      sessionOtp: request.otp ?? undefined,
       mateUserId: request.mateUserId,
       requestId: request.id,
     });
@@ -75,13 +76,20 @@ const ReceivedRequestDetailScreen = ({navigation, route}: any) => {
     });
   };
 
-  const handleAccept = () => {
-    updateRequestStatus(request.id, 'confirmed');
-    showAlert({
-      title: 'Request accepted',
-      message: `You accepted ${profile.name}'s request. Open chat to confirm and share OTP.`,
-      onClose: () => navigation.goBack(),
-    });
+  const handleAccept = async () => {
+    try {
+      await updateRequestStatus(request.id, 'confirmed');
+      showAlert({
+        title: 'Request accepted',
+        message: `You accepted ${profile.name}'s request. Open chat to share the OTP.`,
+        onClose: () => navigation.goBack(),
+      });
+    } catch (err: any) {
+      showAlert({
+        title: 'Could not accept request',
+        message: err?.message || 'Please try again.',
+      });
+    }
   };
 
   return (

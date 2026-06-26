@@ -26,6 +26,7 @@ import {
 import {useTheme} from '../context/ThemeContext';
 import {
   fetchRequestMessages,
+  deleteRequestMessage,
   getWebSocketUrl,
   startSession,
   pauseSessionRequest,
@@ -33,18 +34,17 @@ import {
   resumeSessionRequest,
   resumeSessionConfirm,
   endSession,
-  fetchActiveSession,
   fetchCurrentUser,
   updateMateRequestStatus,
 } from '../utils/api';
 import { getToken } from '../utils/authStorage';
+import {useAppDialog} from '../context/DialogContext';
 
 
 export type ChatFlow =
   | 'active'
   | 'outgoing_request'
-  | 'incoming_request'
-  | 'incoming_otp';
+  | 'incoming_request';
 
 export type ConversationParams = {
   chatFlow: ChatFlow;
@@ -65,9 +65,8 @@ type TenureTimerStatus =
   | 'running'
   | 'pause_requested'
   | 'paused'
-  | 'resume_requested';
-
-type OutgoingPhase = 'awaiting_confirm' | 'otp_sent';
+  | 'resume_requested'
+  | 'ended';
 
 type IncomingPhase = 'waiting_confirmation' | 'otp_display';
 
@@ -81,9 +80,6 @@ const formatTimerShort = (totalSec: number) => {
   return `${m}:${String(s).padStart(2, '0')} mins`;
 };
 
-const generateOtp = () =>
-  String(Math.floor(1000 + Math.random() * 9000));
-
 /** Free chat history seeds only after an active billed session starts. */
 const CHAT_SEED_FLOWS: ChatFlow[] = ['active'];
 
@@ -92,7 +88,6 @@ const CHAT_COMPOSER_FLOWS: ChatFlow[] = [
   'active',
   'outgoing_request',
   'incoming_request',
-  'incoming_otp',
 ];
 
 const seedMessages = (mateName: string): ChatMessage[] => [
@@ -120,6 +115,7 @@ const seedMessages = (mateName: string): ChatMessage[] => [
 ];
 
 const ConversationScreen = ({navigation, route}: any) => {
+  const {showAlert, showConfirm} = useAppDialog();
   const {colors} = useTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const params = (route.params || {}) as ConversationParams;
@@ -133,7 +129,6 @@ const ConversationScreen = ({navigation, route}: any) => {
     requestSentAt = '22-08-2026 12:31 PM',
     initialElapsedSec = 283,
     sessionOtp: routeSessionOtp,
-    mateUserId,
     requestId,
   } = params;
 
@@ -152,12 +147,9 @@ const ConversationScreen = ({navigation, route}: any) => {
   }, []);
 
   const [sessionStarted, setSessionStarted] = useState(chatFlow === 'active');
-  const [outgoingPhase, setOutgoingPhase] =
-    useState<OutgoingPhase>('awaiting_confirm');
   const [incomingPhase, setIncomingPhase] =
-    useState<IncomingPhase>('waiting_confirmation');
+    useState<IncomingPhase>(routeSessionOtp ? 'otp_display' : 'waiting_confirmation');
   const [generatedOtp, setGeneratedOtp] = useState(routeSessionOtp || '');
-  const [sendingOtp, setSendingOtp] = useState(false);
   const [confirmingIncoming, setConfirmingIncoming] = useState(false);
 
   const [otpDigits, setOtpDigits] = useState(['', '', '', '']);
@@ -168,11 +160,9 @@ const ConversationScreen = ({navigation, route}: any) => {
   const [timerStatus, setTimerStatus] = useState<TenureTimerStatus>('running');
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const showChatComposer = CHAT_COMPOSER_FLOWS.includes(chatFlow);
   const scrollRef = useRef<ScrollView>(null);
   const autoStoppedRef = useRef(false);
-  const startGlobalSession = useActiveSessionStore(s => s.startSession);
   const wsRef = useRef<WebSocket | null>(null);
 
   const activeSession = useActiveSessionStore(s => s.session);
@@ -185,7 +175,7 @@ const ConversationScreen = ({navigation, route}: any) => {
       setElapsedSec(activeSession.elapsedSec);
       setTimerStatus(activeSession.status as TenureTimerStatus);
     }
-  }, [isMatchingSession, activeSession?.elapsedSec, activeSession?.status]);
+  }, [activeSession, isMatchingSession]);
 
   const {
     isRecording,
@@ -222,7 +212,7 @@ const ConversationScreen = ({navigation, route}: any) => {
   );
 
   const startTenureSession = useCallback(async (otp: string) => {
-    if (!requestId) return;
+    if (!requestId) return false;
     try {
       const backendSession = await startSession(requestId, otp);
       useActiveSessionStore.getState().restoreSession(backendSession);
@@ -230,38 +220,41 @@ const ConversationScreen = ({navigation, route}: any) => {
       setElapsedSec(backendSession.elapsedSec);
       setTimerStatus(backendSession.status as TenureTimerStatus);
       autoStoppedRef.current = false;
+      return true;
     } catch (err: any) {
       console.log('Error starting session:', err);
+      setOtpError(err?.message || 'Invalid OTP. Ask your mate to share the code again.');
+      return false;
     }
   }, [requestId]);
 
-  // Load chat history
   useEffect(() => {
     if (!requestId) {
       setMessages(CHAT_SEED_FLOWS.includes(chatFlow) ? seedMessages(mateName) : []);
+    }
+  }, [requestId, chatFlow, mateName]);
+
+  // Load backend chat history once per request.
+  useEffect(() => {
+    if (!requestId) {
       return;
     }
 
     let active = true;
-    setLoadingHistory(true);
     fetchRequestMessages(requestId)
       .then(history => {
         if (active) {
           setMessages(history);
-          setLoadingHistory(false);
         }
       })
       .catch(err => {
         console.log('Error loading chat history:', err);
-        if (active) {
-          setLoadingHistory(false);
-        }
       });
 
     return () => {
       active = false;
     };
-  }, [requestId, chatFlow, mateName]);
+  }, [requestId]);
 
   // Handle WebSocket Connection
   useEffect(() => {
@@ -270,8 +263,6 @@ const ConversationScreen = ({navigation, route}: any) => {
     }
 
     let socket: WebSocket | null = null;
-    let keepAliveInterval: any;
-
     const connect = async () => {
       try {
         const token = await getToken();
@@ -285,11 +276,6 @@ const ConversationScreen = ({navigation, route}: any) => {
 
         socket.onopen = () => {
           console.log('WebSocket connected to chat');
-          keepAliveInterval = setInterval(() => {
-            if (socket?.readyState === WebSocket.OPEN) {
-              socket.send(JSON.stringify({ type: 'ping', content: 'ping' }));
-            }
-          }, 30000);
         };
 
         socket.onmessage = (event) => {
@@ -309,6 +295,11 @@ const ConversationScreen = ({navigation, route}: any) => {
                 return [...prev, ackMsg];
               });
               scrollToBottom();
+            } else if (data.event === 'message_deleted') {
+              const deletedMessageId = data.messageId as string | undefined;
+              if (deletedMessageId) {
+                setMessages(prev => prev.filter(m => m.id !== deletedMessageId));
+              }
             } else if (data.event === 'session_update') {
               const session = data.session;
               useActiveSessionStore.getState().restoreSession(session);
@@ -336,7 +327,6 @@ const ConversationScreen = ({navigation, route}: any) => {
 
         socket.onclose = (event) => {
           console.log('WebSocket closed:', event.code, event.reason);
-          clearInterval(keepAliveInterval);
           if (event.code !== 1000 && event.code !== 1005) {
             setTimeout(connect, 3000);
           }
@@ -352,9 +342,8 @@ const ConversationScreen = ({navigation, route}: any) => {
       if (socket) {
         socket.close();
       }
-      clearInterval(keepAliveInterval);
     };
-  }, [requestId]);
+  }, [appendMessage, requestId, scrollToBottom]);
 
   const handleSendText = useCallback(() => {
     const text = message.trim();
@@ -434,6 +423,34 @@ const ConversationScreen = ({navigation, route}: any) => {
     startRecording,
     stopRecording,
   ]);
+
+  const handleDeleteMessage = useCallback(
+    (msg: ChatMessage) => {
+      if (!requestId || msg.sender !== 'me' || msg.type === 'system') {
+        return;
+      }
+
+      showConfirm({
+        title: 'Delete message?',
+        message: 'This message will be deleted for both you and your mate.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        destructive: true,
+        onConfirm: async () => {
+          try {
+            await deleteRequestMessage(requestId, msg.id);
+            setMessages(prev => prev.filter(m => m.id !== msg.id));
+          } catch (err: any) {
+            showAlert({
+              title: 'Could not delete message',
+              message: err?.message || 'Please try again.',
+            });
+          }
+        },
+      });
+    },
+    [requestId, showAlert, showConfirm],
+  );
 
   useEffect(() => {
     if (!isActiveSession || timerStatus !== 'running') {
@@ -542,25 +559,6 @@ const ConversationScreen = ({navigation, route}: any) => {
     }
   };
 
-  const handleConfirmAndSendOtp = () => {
-    setSendingOtp(true);
-    const otp = generateOtp();
-
-    setTimeout(() => {
-      setGeneratedOtp(otp);
-      setSendingOtp(false);
-      setOutgoingPhase('otp_sent');
-    }, 1200);
-  };
-
-  const openReceiverPreview = () => {
-    navigation.replace('Conversation', {
-      ...params,
-      chatFlow: 'incoming_otp',
-      sessionOtp: generatedOtp,
-    });
-  };
-
   const handleConfirmIncomingRequest = async () => {
     if (!requestId) return;
     setConfirmingIncoming(true);
@@ -573,16 +571,6 @@ const ConversationScreen = ({navigation, route}: any) => {
     } finally {
       setConfirmingIncoming(false);
     }
-  };
-
-  const simulateRequesterEnteredOtp = () => {
-    const expected = generatedOtp || routeSessionOtp || '1234';
-    startTenureSession(expected);
-    appendMessage({
-      sender: 'system',
-      type: 'system',
-      text: 'Meet confirmed. Hourly billing has started.',
-    });
   };
 
   const handleOtpChange = (text: string, index: number) => {
@@ -605,21 +593,17 @@ const ConversationScreen = ({navigation, route}: any) => {
     if (text && index === 3) {
       const code = next.join('');
       if (code.length === 4) {
-        verifyOtp(code);
+        void verifyOtp(code);
       }
     }
   };
 
-  const verifyOtp = (code: string) => {
-    const expected = generatedOtp || routeSessionOtp || '';
-
-    if (code !== expected) {
-      setOtpError('Invalid OTP. Ask your mate to share the code.');
+  const verifyOtp = async (code: string) => {
+    setOtpError('');
+    const started = await startTenureSession(code);
+    if (!started) {
       return;
     }
-
-    setOtpError('');
-    startTenureSession(code);
 
     if (messages.length === 0) {
       setMessages(seedMessages(mateName));
@@ -705,20 +689,15 @@ const ConversationScreen = ({navigation, route}: any) => {
             to start billing.
           </Text>
 
-          <Pressable
-            style={styles.demoSwitchButton}
-            onPress={simulateRequesterEnteredOtp}>
-            <Text style={styles.demoSwitchText}>
-              (Demo) {mateName} entered OTP — start session
-            </Text>
-          </Pressable>
         </>
       )}
     </View>
   );
 
   const renderPinkCard = () => {
-    const showOtpEntry = chatFlow === 'incoming_otp' && !sessionStarted;
+    if (sessionStarted) {
+      return null;
+    }
 
     return (
       <View style={styles.pinkCard}>
@@ -731,81 +710,30 @@ const ConversationScreen = ({navigation, route}: any) => {
 
         <Text style={styles.pinkCardMeet}>{meetDetails}</Text>
 
-        {outgoingPhase === 'awaiting_confirm' && chatFlow === 'outgoing_request' && (
-          <Pressable
-            style={styles.confirmOtpButton}
-            onPress={handleConfirmAndSendOtp}
-            disabled={sendingOtp}>
-            {sendingOtp ? (
-              <ActivityIndicator color="#111111" />
-            ) : (
-              <Text style={styles.confirmOtpText}>
-                Confirm and send OTP
-              </Text>
-            )}
-          </Pressable>
-        )}
+        <Text style={styles.otpDisclaimer}>
+          Ask {mateName} for the OTP they received after accepting your
+          request. Tenure time starts only after you enter it.
+        </Text>
 
-        {outgoingPhase === 'otp_sent' && chatFlow === 'outgoing_request' && (
-          <View style={styles.otpSentBlock}>
-            <Text style={styles.otpSentTitle}>
-              OTP sent to {mateName}
-            </Text>
-            <Text style={styles.otpSentCode}>
-              Demo code: {generatedOtp}
-            </Text>
-            <Text style={styles.otpSentHint}>
-              {mateName} must enter this OTP in their chat. Hourly billing
-              starts only after they confirm.
-            </Text>
-            <Pressable
-              style={styles.demoSwitchButton}
-              onPress={openReceiverPreview}>
-              <Text style={styles.demoSwitchText}>
-                (Demo) Open as {mateName} to enter OTP
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        <View style={styles.otpRow}>
+          {otpDigits.map((digit, index) => (
+            <TextInput
+              key={index}
+              ref={ref => {
+                otpRefs.current[index] = ref;
+              }}
+              value={digit}
+              onChangeText={t => handleOtpChange(t, index)}
+              keyboardType="number-pad"
+              maxLength={1}
+              style={styles.otpBox}
+            />
+          ))}
+        </View>
 
-        {showOtpEntry && (
-          <>
-            <Text style={styles.otpDisclaimer}>
-              *Your hourly amount counting will start only after entering
-              the OTP.
-            </Text>
-
-            <View style={styles.otpRow}>
-              {otpDigits.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={ref => {
-                    otpRefs.current[index] = ref;
-                  }}
-                  value={digit}
-                  onChangeText={t => handleOtpChange(t, index)}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                  style={styles.otpBox}
-                />
-              ))}
-            </View>
-
-            {otpError ? (
-              <Text style={styles.otpError}>{otpError}</Text>
-            ) : null}
-
-            {routeSessionOtp ? (
-              <Pressable
-                style={styles.demoSwitchButton}
-                onPress={() => verifyOtp(routeSessionOtp)}>
-                <Text style={styles.demoSwitchText}>
-                  (Demo) Auto-fill OTP {routeSessionOtp}
-                </Text>
-              </Pressable>
-            ) : null}
-          </>
-        )}
+        {otpError ? (
+          <Text style={styles.otpError}>{otpError}</Text>
+        ) : null}
       </View>
     );
   };
@@ -814,7 +742,7 @@ const ConversationScreen = ({navigation, route}: any) => {
     if (chatFlow === 'incoming_request') {
       return renderCreamCard();
     }
-    if (chatFlow === 'outgoing_request' || chatFlow === 'incoming_otp') {
+    if (chatFlow === 'outgoing_request') {
       return renderPinkCard();
     }
     return null;
@@ -937,16 +865,6 @@ const ConversationScreen = ({navigation, route}: any) => {
             onContentSizeChange={scrollToBottom}>
             {!isActiveSession &&
             showChatComposer &&
-            chatFlow === 'outgoing_request' &&
-            outgoingPhase === 'otp_sent' ? (
-              <Text style={styles.waitingBanner}>
-                Waiting for {mateName} to enter the OTP. Use chat below if you
-                need to coordinate.
-              </Text>
-            ) : null}
-
-            {!isActiveSession &&
-            showChatComposer &&
             chatFlow === 'incoming_request' &&
             incomingPhase === 'otp_display' ? (
               <Text style={styles.waitingBanner}>
@@ -959,6 +877,7 @@ const ConversationScreen = ({navigation, route}: any) => {
               messages={messages}
               playingVoiceId={playingId}
               onPlayVoice={playVoice}
+              onDeleteMessage={handleDeleteMessage}
               sessionLabel={
                 isActiveSession ? undefined : sessionLabel
               }
@@ -1100,44 +1019,6 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       marginBottom: 14,
       lineHeight: 22,
     },
-    confirmOtpButton: {
-      backgroundColor: c.bgElevated,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: c.border,
-    },
-    confirmOtpText: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: c.text,
-    },
-    otpSentBlock: {
-      backgroundColor: c.bgElevated,
-      borderRadius: 12,
-      padding: 12,
-      borderWidth: 1,
-      borderColor: c.border,
-    },
-    otpSentTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: c.brand,
-      marginBottom: 6,
-    },
-    otpSentCode: {
-      fontSize: 20,
-      fontWeight: '800',
-      color: c.text,
-      letterSpacing: 3,
-      marginBottom: 8,
-    },
-    otpSentHint: {
-      fontSize: 12,
-      color: c.textSecondary,
-      lineHeight: 18,
-    },
     otpDisclaimer: {
       fontSize: 12,
       fontStyle: 'italic',
@@ -1233,17 +1114,6 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       fontSize: 12,
       color: c.textSecondary,
       textAlign: 'center',
-    },
-    demoSwitchButton: {
-      marginTop: 10,
-      paddingVertical: 8,
-    },
-    demoSwitchText: {
-      fontSize: 12,
-      color: c.brand,
-      fontWeight: '700',
-      textAlign: 'center',
-      textDecorationLine: 'underline',
     },
     statusHint: {
       fontSize: 12,

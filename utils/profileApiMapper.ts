@@ -43,6 +43,26 @@ function formatLocation(profile: BackendProfile): string {
   return parts.join(', ');
 }
 
+export function normalizeTimeRange(value?: string | null): string {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .replace(
+      /(?:\u0393\u00c7\u00f4|\u00e2\u20ac\u201c|\u2013|\u2014)/g,
+      '-',
+    )
+    .replace(
+      /(?:\u0393\u00c7\u00d6|\u00e2\u20ac\u2122|\u2019|\u2018)/g,
+      ' ',
+    )
+    .replace(/\s+/g, ' ')
+    .replace(/\s*-\s*/g, ' - ')
+    .trim()
+    .replace(/\b(am|pm)\b/g, marker => marker.toUpperCase());
+}
+
 function mapComfort(profile: BackendProfile): ComfortZone | null {
   if (
     !profile.comfortPreferredPlaces &&
@@ -112,7 +132,7 @@ export function mapApiProfileToView(
     interests: profile.interests ?? [],
     about: profile.about ?? '',
     days: profile.availableDays ?? [],
-    timeRange: profile.availableTimeRange ?? '',
+    timeRange: normalizeTimeRange(profile.availableTimeRange),
     bestTime: profile.bestTime ?? '',
     ratingValue: null,
     reviewCount: 0,
@@ -145,6 +165,10 @@ type BuildPayloadState = {
   comfort: ComfortZone | null;
   socialLinks?: ProfileSocialLinks;
   gallery?: string[];
+  instantAvailable?: boolean;
+  instantAvailableUntil?: string | null;
+  instantCategories?: string[];
+  instantNote?: string | null;
 };
 
 export function buildProfileUpsertPayload(
@@ -183,7 +207,7 @@ export function buildProfileUpsertPayload(
     vehicles: state.vehicles,
     interests: state.interests,
     availableDays: state.days,
-    availableTimeRange: state.timeRange || null,
+    availableTimeRange: normalizeTimeRange(state.timeRange) || null,
     bestTime: state.bestTime || null,
     comfortPreferredPlaces: state.comfort?.preferredPlaces || null,
     comfortTravelRange: state.comfort?.travelRange || null,
@@ -196,5 +220,17 @@ export function buildProfileUpsertPayload(
     facebook: state.socialLinks?.facebook?.trim() || null,
     youtube: state.socialLinks?.youtube?.trim() || null,
     website: state.socialLinks?.website?.trim() || null,
+    instantAvailable:
+      state.instantAvailable ?? backendProfile?.instantAvailable ?? false,
+    instantAvailableUntil:
+      state.instantAvailableUntil !== undefined
+        ? state.instantAvailableUntil
+        : backendProfile?.instantAvailableUntil ?? null,
+    instantCategories:
+      state.instantCategories ?? backendProfile?.instantCategories ?? [],
+    instantNote:
+      state.instantNote !== undefined
+        ? state.instantNote?.trim() || null
+        : backendProfile?.instantNote ?? null,
   };
 }

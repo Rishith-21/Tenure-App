@@ -22,11 +22,12 @@ export type MateRequest = {
   message: string;
   status: MateRequestStatus;
   sentAt: string;
+  otp?: string | null;
   expiresInDays?: number;
   /** Sent requests: mate has seen the request (double check). */
   delivered?: boolean;
   /** Received cards: "she" | "he" → "she requested :" on Home */
-  requesterPronoun?: 'she' | 'he';
+  requesterPronoun?: 'she' | 'he' | 'they';
   /** Mate map pin — from backend / geocoding; optional until then */
   mateLatitude?: number;
   mateLongitude?: number;

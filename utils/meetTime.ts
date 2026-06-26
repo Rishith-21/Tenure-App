@@ -6,7 +6,8 @@ export function parseMateDateTime(value: string): Date | null {
     /^(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{1,2}):(\d{2})\s*(am|pm)$/i,
   );
   if (!m) {
-    return null;
+    const isoDate = new Date(value);
+    return Number.isNaN(isoDate.getTime()) ? null : isoDate;
   }
   const day = Number(m[1]);
   const month = Number(m[2]) - 1;
@@ -93,11 +94,11 @@ export function formatMeetRange(from: string, to: string): string {
   );
   if (sameDay) {
     if (fromLabel === toLabel) {
-      return `${date} · ${fromLabel}`;
+      return `${date} - ${fromLabel}`;
     }
-    return `${date} · ${fromLabel} – ${toLabel}`;
+    return `${date} - ${fromLabel} to ${toLabel}`;
   }
-  return `From: ${fromLabel} · To: ${toLabel}`;
+  return `From: ${fromLabel} - To: ${toLabel}`;
 }
 
 /** HH:MM:SS for tenure timer display */

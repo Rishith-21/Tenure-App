@@ -1,4 +1,5 @@
 import {create} from 'zustand';
+import {dateToMateString} from '../utils/meetTime';
 
 export const MAX_TENURE_SECONDS = 24 * 60 * 60;
 
@@ -14,6 +15,7 @@ export type ActiveTenureSession = {
   requestId: string;
   status: 'running' | 'pause_requested' | 'paused' | 'resume_requested' | 'ended';
   elapsedSec: number;
+  hourlyRate?: number;
   lastActionBy?: string | null;
 };
 
@@ -23,6 +25,14 @@ type ActiveSessionState = {
   updateSession: (updates: Partial<ActiveTenureSession>) => void;
   clearSession: () => void;
   restoreSession: (backendSession: any) => void;
+};
+
+const isoToMateString = (value?: string | number | null): string => {
+  if (value == null) {
+    return '';
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : dateToMateString(d);
 };
 
 export const useActiveSessionStore = create<ActiveSessionState>(set => ({
@@ -47,13 +57,16 @@ export const useActiveSessionStore = create<ActiveSessionState>(set => ({
         mateName: backendSession.mateName,
         mateTenureId: backendSession.mateTenureId,
         mateAvatar: backendSession.mateAvatar,
-        fromDateTime: new Date(backendSession.startedAt).toISOString(), // fallback values or formatted ranges
-        toDateTime: backendSession.endedAt ? new Date(backendSession.endedAt).toISOString() : new Date().toISOString(),
+        fromDateTime: isoToMateString(backendSession.fromDateTime ?? backendSession.startedAt),
+        toDateTime: isoToMateString(
+          backendSession.toDateTime ?? backendSession.endedAt ?? backendSession.startedAt,
+        ),
         startedAt: backendSession.startedAt,
         mateUserId: backendSession.mateUserId,
         requestId: backendSession.requestId,
         status: backendSession.status,
         elapsedSec: backendSession.elapsedSec,
+        hourlyRate: backendSession.hourlyRate,
         lastActionBy: backendSession.lastActionBy,
       }
     });

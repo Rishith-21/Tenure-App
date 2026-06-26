@@ -176,6 +176,7 @@ const ExploreScreen = ({navigation}: any) => {
       sessionLabel: formatMeetRange(req.fromDateTime, req.toDateTime),
       meetDetails: req.categoryLabel,
       requestSentAt: req.sentAt,
+      sessionOtp: req.otp ?? undefined,
       mateUserId: req.mateUserId,
       requestId: req.id,
     });

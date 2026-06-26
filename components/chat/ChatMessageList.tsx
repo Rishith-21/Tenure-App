@@ -11,6 +11,7 @@ type Props = {
   messages: ChatMessage[];
   playingVoiceId: string | null;
   onPlayVoice: (messageId: string, uri: string) => void;
+  onDeleteMessage?: (message: ChatMessage) => void;
   sessionLabel?: string;
 };
 
@@ -18,6 +19,7 @@ const ChatMessageList = ({
   messages,
   playingVoiceId,
   onPlayVoice,
+  onDeleteMessage,
   sessionLabel,
 }: Props) => {
   const {colors} = useTheme();
@@ -50,10 +52,14 @@ const ChatMessageList = ({
         const isMe = msg.sender === 'me';
         const rowStyle = isMe ? styles.rowRight : styles.rowLeft;
         const bubbleStyle = isMe ? styles.bubbleMe : styles.bubbleThem;
+        const canDelete = isMe && Boolean(onDeleteMessage);
 
         return (
           <View key={msg.id} style={rowStyle}>
-            <View style={bubbleStyle}>
+            <Pressable
+              style={bubbleStyle}
+              onLongPress={canDelete ? () => onDeleteMessage?.(msg) : undefined}
+              delayLongPress={250}>
               {msg.type === 'text' && (
                 <Text style={isMe ? styles.textMe : styles.textThem}>
                   {msg.text}
@@ -84,7 +90,7 @@ const ChatMessageList = ({
               <Text style={isMe ? styles.timeMe : styles.timeThem}>
                 {formatMessageTime(msg.createdAt)}
               </Text>
-            </View>
+            </Pressable>
           </View>
         );
       })}

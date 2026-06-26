@@ -40,7 +40,10 @@ import ProfileSocialSection, {
 } from '../components/profile/ProfileSocialSection';
 import SocialLinkSheet from '../components/profile/SocialLinkSheet';
 import {useAppDialog} from '../context/DialogContext';
-import {loadProfileGallery} from '../utils/profileGalleryStorage';
+import {
+  loadProfileGallery,
+  saveProfileGallery,
+} from '../utils/profileGalleryStorage';
 import {
   loadProfileSocial,
   saveProfileSocial,
@@ -91,6 +94,13 @@ const DAY_FULL: Record<string, string> = {
   SUN: 'Sun',
 };
 
+const INSTANT_DURATION_OPTIONS = [
+  {label: '30 min', minutes: 30},
+  {label: '1 hr', minutes: 60},
+  {label: '2 hrs', minutes: 120},
+  {label: 'Today', minutes: 0},
+];
+
 function hexA(hex: string, alpha: number): string {
   const h = hex.replace('#', '');
   if (h.length !== 6) {
@@ -124,6 +134,43 @@ const profileMountCache = {
   hydrated: false,
 };
 
+function formatTime(value: Date): string {
+  const hours = value.getHours();
+  const minutes = String(value.getMinutes()).padStart(2, '0');
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${minutes} ${suffix}`;
+}
+
+function formatTimeRange(from: Date, to: Date): string {
+  return `${formatTime(from)} - ${formatTime(to)}`;
+}
+
+function getInstantExpiryIso(minutes: number): string {
+  const expiry = new Date();
+  if (minutes === 0) {
+    expiry.setHours(23, 59, 0, 0);
+  } else {
+    expiry.setMinutes(expiry.getMinutes() + minutes);
+    expiry.setSeconds(0, 0);
+  }
+  return expiry.toISOString();
+}
+
+function isFutureIso(value?: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+  return new Date(value).getTime() > Date.now();
+}
+
+function formatInstantUntil(value?: string | null): string {
+  if (!value) {
+    return 'Not live';
+  }
+  return `Live until ${formatTime(new Date(value))}`;
+}
+
 const UserProfileScreenClean = ({navigation, route}: any) => {
   const {showAlert, showChoice} = useAppDialog();
   const {colors, tokens} = useTheme();
@@ -143,6 +190,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
   const [professions, setProfessions] = useState<string[]>([]);
   const [vehicles, setVehicles] = useState<string[]>([]);
   const [days, setDays] = useState<string[]>([]);
+  const [instantAvailable, setInstantAvailable] = useState(false);
+  const [instantAvailableUntil, setInstantAvailableUntil] = useState<string | null>(
+    null,
+  );
+  const [instantDurationMinutes, setInstantDurationMinutes] = useState(60);
+  const [instantNote, setInstantNote] = useState('');
+  const [instantModalVisible, setInstantModalVisible] = useState(false);
   const [startTime, setStartTime] = useState(() => {
     const d = new Date();
     d.setHours(10, 0, 0, 0);
@@ -194,13 +248,6 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
     return () => task.cancel();
   }, []);
 
-  const formatTime = (value: Date) =>
-    value.toLocaleTimeString('en-IN', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-
   const loadBackendProfile = useCallback(async () => {
     try {
       const fetched = await fetchProfile();
@@ -215,6 +262,11 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         if (fetched.professions) setProfessions(fetched.professions);
         if (fetched.vehicles) setVehicles(fetched.vehicles);
         if (fetched.availableDays) setDays(fetched.availableDays);
+        setInstantAvailable(
+          Boolean(fetched.instantAvailable && isFutureIso(fetched.instantAvailableUntil)),
+        );
+        setInstantAvailableUntil(fetched.instantAvailableUntil ?? null);
+        setInstantNote(fetched.instantNote ?? '');
         if (fetched.aadhaarVerified) setAadhaarVerified(true);
         if (fetched.aadhaarMasked) setAadhaarMasked(fetched.aadhaarMasked);
 
@@ -252,6 +304,9 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
       vehicles: string[];
       days: string[];
       timeRange: string;
+      instantAvailable: boolean;
+      instantAvailableUntil: string | null;
+      instantNote: string;
       aadhaarVerified: boolean;
       aadhaarMasked: string;
       socialLinks: ProfileSocialLinks;
@@ -272,8 +327,13 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             days: overrides?.days ?? days,
             timeRange:
               overrides?.timeRange ??
-              `${formatTime(startTime)} – ${formatTime(endTime)}`,
+              formatTimeRange(startTime, endTime),
             bestTime: '',
+            instantAvailable: overrides?.instantAvailable ?? instantAvailable,
+            instantAvailableUntil:
+              overrides?.instantAvailableUntil ?? instantAvailableUntil,
+            instantCategories: overrides?.categories ?? categories,
+            instantNote: overrides?.instantNote ?? instantNote,
             aadhaarVerified: overrides?.aadhaarVerified ?? aadhaarVerified,
             aadhaarMasked: overrides?.aadhaarMasked ?? aadhaarMasked,
             comfort: null,
@@ -296,6 +356,9 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
       days,
       endTime,
       hourlyRate,
+      instantAvailable,
+      instantAvailableUntil,
+      instantNote,
       location,
       profileImage,
       profileName,
@@ -305,6 +368,54 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
       vehicles,
     ],
   );
+
+  const persistInstantAvailability = useCallback(
+    async (enabled: boolean, until: string | null, note = instantNote) => {
+      setInstantAvailable(enabled);
+      setInstantAvailableUntil(until);
+      await persistProfile({
+        instantAvailable: enabled,
+        instantAvailableUntil: until,
+        instantNote: note,
+      });
+    },
+    [instantNote, persistProfile],
+  );
+
+  const handleOpenInstantModal = useCallback(() => {
+    setInstantModalVisible(true);
+  }, []);
+
+  const handleInstantGoLive = useCallback(() => {
+    if (categories.length === 0) {
+      showAlert({
+        title: 'Add a mate category',
+        message: 'Add what you are good for before going live in Instants.',
+      });
+      return;
+    }
+    const until = getInstantExpiryIso(instantDurationMinutes);
+    setInstantModalVisible(false);
+    void persistInstantAvailability(true, until, instantNote);
+  }, [
+    categories.length,
+    instantDurationMinutes,
+    instantNote,
+    persistInstantAvailability,
+    showAlert,
+  ]);
+
+  const handleInstantDuration = useCallback(
+    (minutes: number) => {
+      setInstantDurationMinutes(minutes);
+    },
+    [],
+  );
+
+  const handleInstantTurnOff = useCallback(() => {
+    setInstantModalVisible(false);
+    void persistInstantAvailability(false, null, '');
+  }, [persistInstantAvailability]);
 
   const saveProfileChange = useCallback(
     async (updates: {
@@ -487,6 +598,10 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
 
   const isAvailable = days.length > 0;
   const daysLabel = days.map(d => DAY_FULL[d] ?? d).join(', ');
+  const instantLive = instantAvailable && isFutureIso(instantAvailableUntil);
+  const instantStatusLabel = instantLive
+    ? formatInstantUntil(instantAvailableUntil)
+    : 'Off';
   const requesterSummary =
     categories.length > 0
       ? `${profileName} is available for ${categories.slice(0, 3).join(', ')} requests around ${location}.`
@@ -802,6 +917,51 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
             </View>
           </View>
         </View>
+
+        <Pressable
+          onPress={handleOpenInstantModal}
+          style={({pressed}) => [
+            styles.quickMateCard,
+            instantLive && styles.quickMateCardLive,
+            pressed && styles.pressed,
+          ]}>
+          <View style={styles.quickMateTopRow}>
+            <View style={styles.quickMateLabelRow}>
+              <View
+                style={[
+                  styles.instantDot,
+                  {backgroundColor: instantLive ? colors.success : colors.brand},
+                ]}
+              />
+              <Text style={styles.quickMateEyebrow}>Quick mate</Text>
+            </View>
+            <Text
+              style={[
+                styles.quickMatePill,
+                instantLive && styles.quickMatePillLive,
+              ]}>
+              {instantLive ? 'Live' : 'Go live'}
+            </Text>
+          </View>
+          <Text style={styles.quickMateTitle}>
+            {instantLive ? instantStatusLabel : 'Get instant requests now'}
+          </Text>
+          <Text style={styles.quickMateSub}>
+            {instantLive
+              ? instantNote || 'Your profile is visible in Instants.'
+              : 'Open a short live window for people searching right now.'}
+          </Text>
+          <View style={styles.quickMateFooter}>
+            <Text style={styles.quickMateFooterText}>
+              {instantLive ? 'Tap to edit or turn off' : 'Tap to choose duration'}
+            </Text>
+            <ProfileStrokeIcon
+              name="chevron"
+              color={colors.textMuted}
+              size={15}
+            />
+          </View>
+        </Pressable>
 
         {strengthPercent < 100 ? (
           <View style={styles.section}>
@@ -1175,6 +1335,120 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
         ) : null}
       </ScrollView>
 
+      {instantModalVisible ? (
+        <Modal visible transparent animationType="fade">
+          <Pressable
+            style={[styles.overlay, {backgroundColor: colors.sheetScrim}]}
+            onPress={() => setInstantModalVisible(false)}>
+            <Pressable
+              style={styles.instantDialogCard}
+              onPress={e => e.stopPropagation()}>
+            <View style={styles.instantDialogHeader}>
+              <View>
+                <Text style={styles.dialogTitle}>
+                  {instantLive ? 'You are live' : 'Go live'}
+                </Text>
+                <Text style={styles.instantDialogSub}>
+                  Appear in Instants for users searching right now.
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.instantDialogBadge,
+                  instantLive && styles.instantDialogBadgeLive,
+                ]}>
+                <View
+                  style={[
+                    styles.instantDot,
+                    {backgroundColor: instantLive ? colors.success : colors.textHint},
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.instantDialogBadgeText,
+                    instantLive && styles.instantDialogBadgeTextLive,
+                  ]}>
+                  {instantLive ? 'Live' : 'Off'}
+                </Text>
+              </View>
+            </View>
+            <Text
+              style={[
+                styles.instantDialogMeta,
+                !instantLive && styles.instantMetaInactive,
+              ]}>
+              {instantStatusLabel}
+            </Text>
+            <Text style={styles.fieldLabel}>Live for</Text>
+            <View style={styles.instantDurationRow}>
+              {INSTANT_DURATION_OPTIONS.map(option => {
+                const active = instantDurationMinutes === option.minutes;
+                return (
+                  <Pressable
+                    key={option.label}
+                    style={({pressed}) => [
+                      styles.instantDurationChip,
+                      active && styles.instantDurationChipActive,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={() => handleInstantDuration(option.minutes)}>
+                    <Text
+                      style={[
+                        styles.instantDurationText,
+                        active && styles.instantDurationTextActive,
+                      ]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={[styles.fieldLabel, styles.fieldLabelGap]}>Quick note</Text>
+            <TextInput
+              value={instantNote}
+              onChangeText={setInstantNote}
+              placeholder="Optional note, e.g. free near Udupi until evening"
+              placeholderTextColor={colors.textHint}
+              style={styles.instantNoteInput}
+              maxLength={90}
+              multiline
+            />
+            <View style={styles.instantDialogActions}>
+              {instantLive ? (
+                <Pressable
+                  onPress={handleInstantTurnOff}
+                  style={({pressed}) => [
+                    styles.dialogSecondaryBtn,
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text style={styles.dialogSecondaryText}>Turn off</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => setInstantModalVisible(false)}
+                  style={({pressed}) => [
+                    styles.dialogSecondaryBtn,
+                    pressed && styles.pressed,
+                  ]}>
+                  <Text style={styles.dialogSecondaryText}>Cancel</Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={handleInstantGoLive}
+                style={({pressed}) => [
+                  styles.dialogPrimaryBtn,
+                  pressed && styles.pressed,
+                ]}>
+                <Text style={styles.dialogPrimaryText}>
+                  {instantLive ? 'Update live' : 'Go live'}
+                </Text>
+              </Pressable>
+            </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
       {photoCropVisible ? (
       <ProfilePhotoCropModal
         visible
@@ -1499,7 +1773,7 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           normalized.setSeconds(0, 0);
           setEndTime(normalized);
           void persistProfile({
-            timeRange: `${formatTime(startTime)} – ${formatTime(normalized)}`,
+            timeRange: formatTimeRange(startTime, normalized),
           });
         }}
       />
@@ -1680,6 +1954,84 @@ const createStyles = (c: AppColors, t: DesignTokens) =>
     passportStatVal: {fontSize: 17, fontWeight: '800', color: c.text, letterSpacing: -0.3},
     passportStatKey: {fontSize: 11.5, fontWeight: '500', color: c.textMuted, marginTop: 3},
 
+    quickMateCard: {
+      marginTop: t.spacing.md,
+      borderRadius: t.radius.sm,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderLeftWidth: 4,
+      borderLeftColor: c.brand,
+      backgroundColor: c.card,
+      paddingHorizontal: t.spacing.lg,
+      paddingVertical: t.spacing.md,
+      ...t.shadows.soft(c.shadow),
+    },
+    quickMateCardLive: {
+      borderColor: c.success,
+      borderLeftColor: c.success,
+      backgroundColor: c.card,
+    },
+    quickMateTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: t.spacing.md,
+      marginBottom: 6,
+    },
+    quickMateLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    quickMateEyebrow: {
+      fontSize: 11.5,
+      fontWeight: '800',
+      color: c.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    quickMatePill: {
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: t.radius.pill,
+      overflow: 'hidden',
+      backgroundColor: hexA(c.brand, 0.08),
+      color: c.brand,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    quickMatePillLive: {
+      backgroundColor: hexA(c.success, 0.12),
+      color: c.success,
+    },
+    quickMateTitle: {
+      fontSize: 15.5,
+      fontWeight: '800',
+      color: c.text,
+      letterSpacing: -0.2,
+    },
+    quickMateSub: {
+      marginTop: 3,
+      fontSize: 12.5,
+      fontWeight: '500',
+      color: c.textMuted,
+      lineHeight: 18,
+    },
+    quickMateFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 8,
+      paddingTop: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.border,
+    },
+    quickMateFooterText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: c.textMuted,
+    },
+
     section: {
       backgroundColor: c.card,
       borderRadius: t.radius.md,
@@ -1858,6 +2210,47 @@ const createStyles = (c: AppColors, t: DesignTokens) =>
     timeCardTitle: {fontSize: 16, fontWeight: '700', color: c.text},
     timeCardSub: {fontSize: 13, fontWeight: '500', color: c.textMuted, marginTop: 4},
 
+    instantDot: {width: 7, height: 7, borderRadius: 4},
+    instantMetaInactive: {color: c.textMuted},
+    instantDurationRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    instantDurationChip: {
+      minHeight: 34,
+      paddingHorizontal: 12,
+      borderRadius: t.radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.cardMuted,
+    },
+    instantDurationChipActive: {
+      borderColor: c.brand,
+      backgroundColor: hexA(c.brand, 0.08),
+    },
+    instantDurationText: {
+      fontSize: 12.5,
+      fontWeight: '800',
+      color: c.textMuted,
+    },
+    instantDurationTextActive: {color: c.brand},
+    instantNoteInput: {
+      minHeight: 58,
+      borderRadius: t.radius.sm,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bg,
+      color: c.text,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 13.5,
+      fontWeight: '500',
+      textAlignVertical: 'top',
+    },
+
     locationRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -2006,6 +2399,82 @@ const createStyles = (c: AppColors, t: DesignTokens) =>
       borderColor: c.border,
       backgroundColor: c.bgElevated,
       padding: t.spacing.xxl,
+    },
+    instantDialogCard: {
+      alignSelf: 'center',
+      width: '90%',
+      maxWidth: 430,
+      marginBottom: '30%',
+      borderRadius: t.radius.md,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: c.border,
+      backgroundColor: c.bgElevated,
+      padding: t.spacing.xxl,
+    },
+    instantDialogHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: t.spacing.md,
+    },
+    instantDialogSub: {
+      marginTop: 5,
+      fontSize: 13,
+      fontWeight: '500',
+      color: c.textMuted,
+      lineHeight: 18,
+      maxWidth: 260,
+    },
+    instantDialogBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: t.radius.pill,
+      backgroundColor: c.cardMuted,
+    },
+    instantDialogBadgeLive: {
+      backgroundColor: hexA(c.success, 0.12),
+    },
+    instantDialogBadgeText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: c.textMuted,
+    },
+    instantDialogBadgeTextLive: {color: c.success},
+    instantDialogMeta: {
+      marginTop: t.spacing.md,
+      marginBottom: t.spacing.lg,
+      fontSize: 13,
+      fontWeight: '800',
+      color: c.success,
+    },
+    instantDialogActions: {
+      flexDirection: 'row',
+      gap: t.spacing.md,
+      marginTop: t.spacing.lg,
+    },
+    dialogSecondaryBtn: {
+      flex: 1,
+      borderRadius: t.radius.sm,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.bg,
+      alignItems: 'center',
+      paddingVertical: t.spacing.lg,
+    },
+    dialogSecondaryText: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: c.text,
+    },
+    dialogPrimaryBtn: {
+      flex: 1,
+      borderRadius: t.radius.sm,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      paddingVertical: t.spacing.lg,
     },
     dialogTitle: {
       ...t.typography.h3,

@@ -18,6 +18,7 @@ import ProfileTrustBadges from './ProfileTrustBadges';
 type Props = {
   name: string;
   avatarUri: string;
+  galleryImages: string[];
   professionLine: string;
   district: string;
   fullLocation: string;
@@ -35,6 +36,7 @@ type Props = {
 const MatePassportHero = ({
   name,
   avatarUri,
+  galleryImages,
   professionLine,
   district,
   fullLocation,
@@ -57,6 +59,7 @@ const MatePassportHero = ({
   ]
     .filter(Boolean)
     .join(' · ');
+  const galleryPreviewImages = galleryImages.length > 0 ? galleryImages : [];
 
   return (
     <View style={styles.outer}>
@@ -103,7 +106,13 @@ const MatePassportHero = ({
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.galleryScroll}>
-            <Image source={{uri: avatarUri}} style={styles.galleryThumb} />
+            {galleryPreviewImages.map((uri, index) => (
+              <Image
+                key={`${uri}-${index}`}
+                source={{uri}}
+                style={styles.galleryThumb}
+              />
+            ))}
           </ScrollView>
           <Text style={styles.galleryChevron}>›</Text>
         </Pressable>

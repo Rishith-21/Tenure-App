@@ -57,6 +57,8 @@ const HomeMeetAllSheet = ({
           const requestDirection = item.request?.direction;
           const isLive = item.kind === 'active' || item.pillLabel === 'LIVE';
           const isConfirmed = item.pillLabel === 'CONFIRMED';
+          const avatarUri = item.mateAvatar?.trim();
+          const avatarInitial = item.mateName.charAt(0).toUpperCase();
           const needsMyConfirm =
             item.pillLabel === 'CONFIRM?' && requestDirection === 'received';
           return (
@@ -71,7 +73,13 @@ const HomeMeetAllSheet = ({
                 pressed && styles.rowPressed,
               ]}
               onPress={() => onRowPress(item.id)}>
-              <Image source={{uri: item.mateAvatar}} style={styles.avatar} />
+              {avatarUri ? (
+                <Image source={{uri: avatarUri}} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+                </View>
+              )}
               <View style={styles.rowBody}>
                 <Text style={styles.rowName}>{item.mateName}</Text>
                 <Text style={styles.rowMeta}>{item.categoryLabel}</Text>
@@ -141,6 +149,16 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       height: 44,
       borderRadius: 22,
       backgroundColor: c.chip,
+    },
+    avatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.chip,
+    },
+    avatarInitial: {
+      fontSize: 16,
+      fontWeight: '900',
+      color: c.brand,
     },
     rowBody: {flex: 1},
     rowName: {

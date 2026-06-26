@@ -20,6 +20,7 @@ export type MatePublicProfile = SearchMateUser & {
   reviewCount: number;
   /** True after Aadhaar identity verification on Tenure. */
   aadhaarVerified?: boolean;
+  gallery: string[];
   social: {
     youtube?: string;
     instagram?: string;
@@ -170,6 +171,7 @@ export const getMateProfile = (userId: string): MatePublicProfile | null => {
     reviewPercent: extra.reviewPercent ?? 0,
     reviewCount: extra.reviewCount ?? 0,
     aadhaarVerified: extra.aadhaarVerified ?? false,
+    gallery: extra.gallery ?? [],
     social: extra.social ?? {},
   };
 };
@@ -215,6 +217,7 @@ export const getMateProfileFromRequest = (
     reviewPercent: 0,
     reviewCount: 0,
     aadhaarVerified: false,
+    gallery: [],
     social: {},
   };
 };

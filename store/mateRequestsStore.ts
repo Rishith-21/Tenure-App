@@ -1,5 +1,5 @@
 import {create} from 'zustand';
-import {MateRequest, MateRequestStatus} from '../types/mateRequest';
+import {MateRequest} from '../types/mateRequest';
 import {deriveMateUsername} from '../utils/requestLabels';
 import {dateToMateString, parseMateDateTime} from '../utils/meetTime';
 import {
@@ -23,6 +23,19 @@ const mateStringToIso = (value: string): string => {
 const isoToMateString = (value: string): string => {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? value : dateToMateString(d);
+};
+
+const genderToPronoun = (
+  gender?: string | null,
+): MateRequest['requesterPronoun'] => {
+  const normalized = (gender ?? '').trim().toLowerCase();
+  if (normalized === 'man' || normalized === 'male') {
+    return 'he';
+  }
+  if (normalized === 'woman' || normalized === 'female') {
+    return 'she';
+  }
+  return 'they';
 };
 
 type AddSentPayload = {
@@ -67,6 +80,8 @@ const mapApiToFrontend = (req: ApiMateRequest): MateRequest => ({
   message: req.message,
   status: req.status,
   sentAt: req.sentAt,
+  otp: req.otp ?? null,
+  requesterPronoun: genderToPronoun(req.requesterGender),
   delivered: true,
 });
 

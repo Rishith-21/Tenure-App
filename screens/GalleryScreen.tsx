@@ -80,6 +80,7 @@ const GalleryScreen = ({navigation, route}: Props) => {
           const res = await fetchProfile();
           if (res) {
             await upsertProfile({
+              profilePhoto: res.profilePhoto,
               fullName: res.fullName,
               dob: res.dob,
               gender: res.gender,
@@ -108,6 +109,10 @@ const GalleryScreen = ({navigation, route}: Props) => {
               facebook: res.facebook,
               youtube: res.youtube,
               website: res.website,
+              instantAvailable: res.instantAvailable,
+              instantAvailableUntil: res.instantAvailableUntil,
+              instantCategories: res.instantCategories,
+              instantNote: res.instantNote,
               gallery: next,
             });
           }
