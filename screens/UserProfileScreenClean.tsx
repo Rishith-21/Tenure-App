@@ -1152,9 +1152,9 @@ const UserProfileScreenClean = ({navigation, route}: any) => {
           </Pressable>
         </View>
 
-        {/* Trust wallet */}
+        {/* Trust center */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Trust Wallet</Text>
+          <Text style={styles.sectionTitle}>Trust Center</Text>
           <View style={styles.trustList}>
             <View style={styles.trustRow}>
               <Text style={styles.trustRowLabel}>Phone verified</Text>

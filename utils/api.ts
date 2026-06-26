@@ -798,7 +798,7 @@ export async function uploadImage(fileUri: string): Promise<string> {
 export type ApiNotification = {
   id: string;
   userId: string;
-  kind: 'request_accepted' | 'meet_canceled' | 'payment_canceled' | 'meet_expired' | 'payment_sent' | 'payment_received';
+  kind: 'request_accepted' | 'meet_canceled' | 'meet_expired';
   message: string;
   read: boolean;
   createdAt: string;
@@ -807,15 +807,14 @@ export type ApiNotification = {
 /**
  * Fetches notifications for the logged-in user.
  */
-export async function fetchNotifications(filter?: 'all' | 'payments'): Promise<ApiNotification[]> {
+export async function fetchNotifications(): Promise<ApiNotification[]> {
   const token = await getToken();
   if (!token) return [];
 
   const baseUrl = getBaseUrl();
-  const query = filter ? `?filter=${filter}` : '';
 
   try {
-    const response = await fetch(`${baseUrl}/api/notifications${query}`, {
+    const response = await fetch(`${baseUrl}/api/notifications`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -868,26 +867,6 @@ export async function markAllNotificationsRead(): Promise<void> {
     });
   } catch (error) {
     console.log('Error marking all notifications as read:', error);
-  }
-}
-
-export async function changePassword(currentPassword?: string, newPassword?: string): Promise<void> {
-  const token = await getToken();
-  if (!token) throw new Error('Not authenticated');
-
-  const baseUrl = getBaseUrl();
-  const response = await fetch(`${baseUrl}/api/users/change-password`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ currentPassword, newPassword }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to update password');
   }
 }
 

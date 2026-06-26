@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState, useCallback} from 'react';
+import React, {useMemo, useCallback} from 'react';
 import {
   View,
   Text,
@@ -19,17 +19,12 @@ const AlertsScreen = () => {
   const styles = useMemo(() => createStyles(colors, tokens), [colors, tokens]);
   const insets = useSafeAreaInsets();
 
-  const [filterActive, setFilterActive] = useState(false); // false = All activity, true = Payments only
-
   const {alerts, loading, fetchAlerts, markAsRead, markAllAsRead} = useAlertsStore();
 
-  const currentFilter = filterActive ? 'payments' : 'all';
-
-  // Fetch alerts when screen comes into focus or when the active filter changes
   useFocusEffect(
     useCallback(() => {
-      fetchAlerts(currentFilter);
-    }, [currentFilter, fetchAlerts]),
+      fetchAlerts();
+    }, [fetchAlerts]),
   );
 
   const hasUnread = useMemo(() => alerts.some(a => !a.read), [alerts]);
@@ -49,24 +44,6 @@ const AlertsScreen = () => {
           icon: '✕',
           bg: '#FFEBEE', // Light red
           color: '#C62828', // Dark red
-        };
-      case 'payment_sent':
-        return {
-          icon: '↑',
-          bg: '#E3F2FD', // Light blue
-          color: '#1565C0', // Dark blue
-        };
-      case 'payment_received':
-        return {
-          icon: '↓',
-          bg: '#FFF8E1', // Light amber
-          color: '#F57F17', // Dark amber
-        };
-      case 'payment_canceled':
-        return {
-          icon: '⟳',
-          bg: '#ECEFF1', // Light blue-grey
-          color: '#37474F', // Dark blue-grey
         };
       default:
         return {
@@ -88,47 +65,9 @@ const AlertsScreen = () => {
                 <Text style={styles.markAllText}>Mark all read</Text>
               </Pressable>
             )}
-            <Pressable
-              onPress={() => setFilterActive(v => !v)}
-              hitSlop={8}>
-              <View style={[styles.filterWrap, filterActive && styles.filterWrapActive]}>
-                <Text style={[styles.filterIcon, filterActive && styles.filterIconActive]}>≡</Text>
-              </View>
-            </Pressable>
           </View>
         }
       />
-
-      <View style={styles.filterPillsRow}>
-        <Pressable
-          style={[
-            styles.filterPill,
-            !filterActive && styles.filterPillActive,
-          ]}
-          onPress={() => setFilterActive(false)}>
-          <Text
-            style={[
-              styles.filterPillText,
-              !filterActive && styles.filterPillTextActive,
-            ]}>
-            All activity
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.filterPill,
-            filterActive && styles.filterPillActive,
-          ]}
-          onPress={() => setFilterActive(true)}>
-          <Text
-            style={[
-              styles.filterPillText,
-              filterActive && styles.filterPillTextActive,
-            ]}>
-            Payments only
-          </Text>
-        </Pressable>
-      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -139,7 +78,7 @@ const AlertsScreen = () => {
         refreshControl={
           <RefreshControl
             refreshing={loading}
-            onRefresh={() => fetchAlerts(currentFilter)}
+            onRefresh={() => fetchAlerts()}
             tintColor={colors.brand}
             colors={[colors.brand]}
           />
@@ -148,9 +87,7 @@ const AlertsScreen = () => {
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyTitle}>All quiet for now</Text>
             <Text style={styles.emptyBody}>
-              {filterActive
-                ? 'No payment alerts found.'
-                : 'Request updates, payments, and session alerts will appear here once you start using Tenure.'}
+              Request updates and session alerts will appear here once you start using Tenure.
             </Text>
           </View>
         ) : (
@@ -218,57 +155,9 @@ const createStyles = (
       fontWeight: '700',
       color: c.brand,
     },
-    filterWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: c.border,
-      backgroundColor: c.bgElevated,
-    },
-    filterWrapActive: {
-      borderColor: c.brand,
-      backgroundColor: c.chipActive,
-    },
-    filterIcon: {
-      fontSize: 18,
-      color: c.textSecondary,
-      fontWeight: '700',
-    },
-    filterIconActive: {
-      color: c.bgElevated,
-    },
     scroll: {
       paddingHorizontal: 20,
       paddingTop: 8,
-    },
-    filterPillsRow: {
-      flexDirection: 'row',
-      paddingHorizontal: 20,
-      gap: 8,
-      marginBottom: 16,
-    },
-    filterPill: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: c.border,
-      borderRadius: tokens.radius.pill,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      backgroundColor: c.bgElevated,
-    },
-    filterPillActive: {
-      backgroundColor: c.bg,
-      borderColor: c.brand,
-    },
-    filterPillText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: c.textMuted,
-    },
-    filterPillTextActive: {
-      color: c.brand,
     },
     emptyWrap: {
       marginTop: 64,
@@ -347,3 +236,4 @@ const createStyles = (
       backgroundColor: c.brand,
     },
   });
+

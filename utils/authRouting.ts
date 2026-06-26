@@ -7,14 +7,12 @@ import {
   setOnboardingComplete,
   type AuthRoute,
 } from './authStorage';
-import {isProfileComplete} from './profileCompletion';
-
 export type PostAuthDestination = 'ProfileCreation' | 'MainTabs';
 
 function destinationFromProfileResult(
   result: ProfileFetchResult,
 ): PostAuthDestination {
-  if (result.kind === 'found' && isProfileComplete(result.profile)) {
+  if (result.kind === 'found') {
     return 'MainTabs';
   }
   return 'ProfileCreation';

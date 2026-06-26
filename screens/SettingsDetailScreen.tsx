@@ -24,10 +24,8 @@ import {useAppDialog} from '../context/DialogContext';
 import {
   fetchProfile,
   upsertProfile,
-  changePassword,
   fetchBlockedUsers,
   unblockUser,
-  submitReport,
   BlockedUserApi,
   BackendProfile,
 } from '../utils/api';
@@ -55,12 +53,6 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<BackendProfile | null>(null);
 
-  // Forms states
-  // 1. Password
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
   // 2. Emergency Contact
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
@@ -69,18 +61,11 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
   // 3. Blocked Users
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserApi[]>([]);
 
-  // 4. Report Problem
-  const [reportCategory, setReportCategory] = useState('bug');
-  const [reportMessage, setReportMessage] = useState('');
-
   // 5. General toggles & settings
   const [profileVisibility, setProfileVisibility] = useState(true);
   const [notifyRequests, setNotifyRequests] = useState(true);
   const [notifyChat, setNotifyChat] = useState(true);
   const [notifyReminders, setNotifyReminders] = useState(true);
-
-  // 6. Language selector
-  const [appLanguage, setAppLanguage] = useState('English');
 
   // Load necessary data based on itemId
   const loadData = useCallback(async () => {
@@ -90,9 +75,7 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
       if (
         itemId === 'profile-visibility' ||
         itemId === 'emergency-contact' ||
-        itemId === 'notifications-requests' ||
-        itemId === 'notifications-chat' ||
-        itemId === 'notifications-reminders' ||
+        itemId.startsWith('notifications-') ||
         itemId === 'verification'
       ) {
         const fetchedProfile = await fetchProfile();
@@ -138,34 +121,6 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
   }
 
   // --- SUBMIT ACTIONS ---
-  const handleUpdatePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      showAlert({title: 'Validation Error', message: 'All password fields are required.'});
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      showAlert({title: 'Validation Error', message: 'New passwords do not match.'});
-      return;
-    }
-    if (newPassword.length < 8) {
-      showAlert({title: 'Validation Error', message: 'New password must be at least 8 characters long.'});
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await changePassword(currentPassword, newPassword);
-      showAlert({title: 'Success', message: 'Password has been updated successfully.'});
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err: any) {
-      showAlert({title: 'Error', message: err?.message || 'Failed to update password.'});
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSaveEmergencyContact = async () => {
     if (!profile) return;
     setLoading(true);
@@ -214,11 +169,18 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
     }
   };
 
-  const toggleNotification = async (field: 'requests' | 'chat' | 'reminders', val: boolean) => {
+  const toggleNotification = async (
+    field: 'notifyRequests' | 'notifyChat' | 'notifyReminders',
+    val: boolean,
+  ) => {
     if (!profile) return;
-    if (field === 'requests') setNotifyRequests(val);
-    if (field === 'chat') setNotifyChat(val);
-    if (field === 'reminders') setNotifyReminders(val);
+
+    const setters = {
+      notifyRequests: setNotifyRequests,
+      notifyChat: setNotifyChat,
+      notifyReminders: setNotifyReminders,
+    };
+    setters[field](val);
 
     try {
       const updated = await upsertProfile({
@@ -230,16 +192,11 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
         district: profile.district,
         pinCode: profile.pinCode,
         languages: profile.languages,
-        notifyRequests: field === 'requests' ? val : notifyRequests,
-        notifyChat: field === 'chat' ? val : notifyChat,
-        notifyReminders: field === 'reminders' ? val : notifyReminders,
+        [field]: val,
       });
       setProfile(updated);
     } catch (err: any) {
-      // Revert
-      if (field === 'requests') setNotifyRequests(!val);
-      if (field === 'chat') setNotifyChat(!val);
-      if (field === 'reminders') setNotifyReminders(!val);
+      setters[field](!val);
       showAlert({title: 'Error', message: err?.message || 'Failed to update preferences.'});
     }
   };
@@ -264,23 +221,6 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
     });
   };
 
-  const handleSubmitProblem = async () => {
-    if (!reportMessage.trim()) {
-      showAlert({title: 'Validation Error', message: 'Please describe the problem.'});
-      return;
-    }
-    setLoading(true);
-    try {
-      await submitReport(reportCategory, reportMessage.trim());
-      showAlert({title: 'Thank You', message: 'Your report has been submitted. Our support team will review it.'});
-      setReportMessage('');
-    } catch (err: any) {
-      showAlert({title: 'Error', message: err?.message || 'Failed to submit report.'});
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // --- VIEW RENDERING ---
 
   const renderContent = () => {
@@ -293,44 +233,6 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
     }
 
     switch (itemId) {
-      case 'change-password':
-        return (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>Current Password</Text>
-            <TextInput
-              secureTextEntry
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              style={styles.input}
-              placeholder="Enter current password"
-              placeholderTextColor="#9CA3AF"
-            />
-            <Text style={styles.sectionLabel}>New Password</Text>
-            <TextInput
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              style={styles.input}
-              placeholder="Enter new password"
-              placeholderTextColor="#9CA3AF"
-            />
-            <Text style={styles.sectionLabel}>Confirm New Password</Text>
-            <TextInput
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              style={styles.input}
-              placeholder="Confirm new password"
-              placeholderTextColor="#9CA3AF"
-            />
-            <Pressable
-              style={({pressed}) => [styles.submitBtn, pressed && styles.pressed]}
-              onPress={handleUpdatePassword}>
-              <Text style={styles.submitBtnText}>Update Password</Text>
-            </Pressable>
-          </View>
-        );
-
       case 'profile-visibility':
         return (
           <View style={styles.sectionCard}>
@@ -441,163 +343,51 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
           />
         );
 
-      case 'report-problem':
-        return (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionLabel}>Problem Category</Text>
-            <View style={styles.categoryRow}>
-              {['bug', 'safety', 'abuse', 'other'].map(cat => (
-                <Pressable
-                  key={cat}
-                  style={[
-                    styles.categoryChip,
-                    reportCategory === cat && styles.categoryChipSelected,
-                  ]}
-                  onPress={() => setReportCategory(cat)}>
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      reportCategory === cat && styles.categoryChipTextSelected,
-                    ]}>
-                    {cat.toUpperCase()}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.sectionLabel}>Description</Text>
-            <TextInput
-              multiline
-              numberOfLines={6}
-              value={reportMessage}
-              onChangeText={setReportMessage}
-              style={[styles.input, styles.textArea]}
-              placeholder="Describe the issue you are experiencing..."
-              placeholderTextColor="#9CA3AF"
-            />
-            <Pressable
-              style={({pressed}) => [styles.submitBtn, pressed && styles.pressed]}
-              onPress={handleSubmitProblem}>
-              <Text style={styles.submitBtnText}>Submit Report</Text>
-            </Pressable>
-          </View>
-        );
-
       case 'notifications-requests':
       case 'notifications-chat':
-      case 'notifications-reminders':
+      case 'notifications-reminders': {
+        const notificationMeta =
+          itemId === 'notifications-requests'
+            ? {
+                title: 'Request Notifications',
+                subtitle: 'Get notified when someone sends or updates a mate request.',
+                value: notifyRequests,
+                field: 'notifyRequests' as const,
+              }
+            : itemId === 'notifications-chat'
+              ? {
+                  title: 'Chat Notifications',
+                  subtitle: 'Receive alerts for new messages from active contacts.',
+                  value: notifyChat,
+                  field: 'notifyChat' as const,
+                }
+              : {
+                  title: 'Reminder Notifications',
+                  subtitle: 'Get reminders for upcoming sessions and important actions.',
+                  value: notifyReminders,
+                  field: 'notifyReminders' as const,
+                };
+
         return (
           <View style={styles.sectionCard}>
             <View style={styles.row}>
               <View style={styles.textBlock}>
-                <Text style={styles.rowTitle}>Requests Notifications</Text>
+                <Text style={styles.rowTitle}>{notificationMeta.title}</Text>
                 <Text style={styles.rowSubtitle}>
-                  Receive alerts when a request is sent, accepted, or canceled.
+                  {notificationMeta.subtitle}
                 </Text>
               </View>
               <Switch
-                value={notifyRequests}
-                onValueChange={val => toggleNotification('requests', val)}
-                trackColor={{true: '#064B63', false: '#D1D5DB'}}
-              />
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.row}>
-              <View style={styles.textBlock}>
-                <Text style={styles.rowTitle}>Chat Messages</Text>
-                <Text style={styles.rowSubtitle}>
-                  Get real-time push alerts for new chat conversation messages.
-                </Text>
-              </View>
-              <Switch
-                value={notifyChat}
-                onValueChange={val => toggleNotification('chat', val)}
-                trackColor={{true: '#064B63', false: '#D1D5DB'}}
-              />
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.row}>
-              <View style={styles.textBlock}>
-                <Text style={styles.rowTitle}>System Reminders</Text>
-                <Text style={styles.rowSubtitle}>
-                  Get reminded about active meets, session limits, or security updates.
-                </Text>
-              </View>
-              <Switch
-                value={notifyReminders}
-                onValueChange={val => toggleNotification('reminders', val)}
+                value={notificationMeta.value}
+                onValueChange={val =>
+                  toggleNotification(notificationMeta.field, val)
+                }
                 trackColor={{true: '#064B63', false: '#D1D5DB'}}
               />
             </View>
           </View>
         );
-
-      case 'wallet':
-      case 'earnings':
-      case 'transactions':
-        return (
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.walletCard}>
-              <Text style={styles.walletTitle}>Total Balance</Text>
-              <Text style={styles.walletAmount}>₹1,450.00</Text>
-              <View style={styles.walletRow}>
-                <View>
-                  <Text style={styles.walletSub}>Earnings (This Month)</Text>
-                  <Text style={styles.walletSubVal}>₹3,840.00</Text>
-                </View>
-                <View>
-                  <Text style={styles.walletSub}>Payouts</Text>
-                  <Text style={styles.walletSubVal}>₹2,390.00</Text>
-                </View>
-              </View>
-            </View>
-
-            <Text style={styles.sectionTitleHeader}>Recent Transactions</Text>
-            <View style={styles.sectionCard}>
-              {[
-                {id: '1', title: 'Session Fee Received', date: '26 Jun 2026', amount: '+₹420.00', status: 'completed'},
-                {id: '2', title: 'Withdrawal to UPI', date: '22 Jun 2026', amount: '-₹1,000.00', status: 'completed'},
-                {id: '3', title: 'Session Fee Paid', date: '19 Jun 2026', amount: '-₹180.00', status: 'completed'},
-                {id: '4', title: 'Platform Bonus', date: '15 Jun 2026', amount: '+₹50.00', status: 'completed'},
-              ].map(t => (
-                <View key={t.id} style={styles.transactionRow}>
-                  <View>
-                    <Text style={styles.transactionTitle}>{t.title}</Text>
-                    <Text style={styles.transactionDate}>{t.date}</Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.transactionAmt,
-                      t.amount.startsWith('+') ? {color: '#10B981'} : {color: '#EF4444'},
-                    ]}>
-                    {t.amount}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        );
-
-      case 'language':
-        return (
-          <View style={styles.sectionCard}>
-            {['English', 'Hindi (हिन्दी)', 'Kannada (ಕನ್ನಡ)', 'Tamil (தமிழ்)'].map(lang => (
-              <Pressable
-                key={lang}
-                style={styles.languageRow}
-                onPress={() => setAppLanguage(lang.split(' ')[0])}>
-                <Text
-                  style={[
-                    styles.languageText,
-                    appLanguage === lang.split(' ')[0] && {color: '#064B63', fontWeight: '700'},
-                  ]}>
-                  {lang}
-                </Text>
-                {appLanguage === lang.split(' ')[0] && <Text style={styles.checkIcon}>✓</Text>}
-              </Pressable>
-            ))}
-          </View>
-        );
-
+      }
       case 'help-support':
         return (
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -640,7 +430,7 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
               {"\n\n"}
               2. Safe Engagement: All meets must be in public places as coordinates verify. Tenure does not tolerate private or unsafe arrangements.
               {"\n\n"}
-              3. Fees & Platform Commission: Platform charges a set commission on all completed sessions. Payouts are made within 48 hours.
+              3. Session Billing: Active meet sessions may show time-based billing based on the agreed hourly rate. Billing starts only after the session verification flow begins.
             </Text>
           </ScrollView>
         );
@@ -651,11 +441,11 @@ const SettingsDetailScreen = ({navigation, route}: Props) => {
             <Text style={styles.termsText}>
               Tenure values your privacy. This policy outlines how we gather, store, and process your data.
               {"\n\n"}
-              - Data Collection: We collect location coords, phone, name, dob, profile pictures, and transaction details to ensure safe meets.
+              - Data Collection: We collect location coordinates, phone, name, date of birth, and profile pictures to ensure safe meets.
               {"\n\n"}
               - Information Security: Your Aadhaar details are fully encrypted and only used for validation check. The raw numbers are masked.
               {"\n\n"}
-              - Third-party Services: Payment details are securely handled by compliant gateway integration networks.
+              - Third-party Services: We may use trusted services for infrastructure, safety, and communications.
             </Text>
           </ScrollView>
         );
@@ -862,66 +652,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
   },
-  categoryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  categoryChip: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  categoryChipSelected: {
-    backgroundColor: '#E6F0F2',
-    borderColor: '#064B63',
-  },
-  categoryChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  categoryChipTextSelected: {
-    color: '#064B63',
-  },
-  walletCard: {
-    backgroundColor: '#064B63',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-  },
-  walletTitle: {
-    color: '#E6F0F2',
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  walletAmount: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '800',
-    marginTop: 6,
-    marginBottom: 20,
-  },
-  walletRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  walletSub: {
-    color: '#A0C3CD',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  walletSubVal: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 2,
-  },
   sectionTitleHeader: {
     fontSize: 14,
     fontWeight: '700',
@@ -930,45 +660,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
     paddingLeft: 4,
-  },
-  transactionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F3F4F6',
-  },
-  transactionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  transactionDate: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  transactionAmt: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  languageRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F3F4F6',
-  },
-  languageText: {
-    fontSize: 15,
-    color: '#374151',
-  },
-  checkIcon: {
-    color: '#064B63',
-    fontSize: 18,
-    fontWeight: '700',
   },
   faqCard: {
     backgroundColor: '#FFFFFF',
@@ -1010,3 +701,4 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
+

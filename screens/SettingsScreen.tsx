@@ -22,7 +22,6 @@ import {goBackSafe} from '../navigation/navigationActions';
 type SettingsNav = NativeStackNavigationProp<{
   Settings: undefined;
   SettingsDetail: {itemId: SettingsItemId};
-  SettingsAppearance: undefined;
   UserProfile: undefined;
   AccountStatus: undefined;
 }>;
@@ -61,9 +60,6 @@ const SettingsScreen = ({navigation}: {navigation: SettingsNav}) => {
     (id: SettingsItemId) => {
       const target = resolveSettingsNavigation(id);
       switch (target) {
-        case 'appearance':
-          navigation.navigate('SettingsAppearance');
-          return;
         case 'personal-information':
           navigation.navigate('UserProfile');
           return;

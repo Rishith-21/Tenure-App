@@ -13,13 +13,15 @@ function mapGender(gender: string | null): 'male' | 'female' {
 }
 
 export function mapDiscoverMateToSearchUser(mate: DiscoverMateApi): SearchMateUser {
+  const profilePhoto = mate.profilePhoto?.trim() ?? '';
+
   return {
     id: mate.userId,
     name: mate.fullName,
     tenureId: mate.tenureId,
     categories: mate.categories,
     ratePerHour: mate.hourlyRate ?? 0,
-    avatar: mate.profilePhoto ?? '',
+    avatar: profilePhoto,
     district: mate.district,
     gender: mapGender(mate.gender),
     age: calculateAgeFromDob(mate.dob) ?? 0,
@@ -47,7 +49,7 @@ export function mapDiscoverMateToPublicProfile(
     reviewPercent: 0,
     reviewCount: 0,
     aadhaarVerified: mate.aadhaarVerified,
-    gallery: mate.gallery ?? [],
+    gallery: (mate.gallery ?? []).map(uri => uri.trim()).filter(Boolean),
     social: {
       ...(mate.instagram ? {instagram: mate.instagram} : {}),
       ...(mate.youtube ? {youtube: mate.youtube} : {}),

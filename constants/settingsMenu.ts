@@ -1,23 +1,15 @@
 export type SettingsItemId =
   | 'personal-information'
-  | 'change-password'
   | 'account-status'
   | 'deactivate-account'
   | 'delete-account'
   | 'profile-visibility'
-  | 'public-profile-preview'
   | 'verification'
   | 'emergency-contact'
   | 'blocked-users'
-  | 'report-problem'
   | 'notifications-requests'
   | 'notifications-chat'
   | 'notifications-reminders'
-  | 'wallet'
-  | 'earnings'
-  | 'transactions'
-  | 'appearance'
-  | 'language'
   | 'help-support'
   | 'terms'
   | 'privacy-policy';
@@ -45,7 +37,6 @@ export const SETTINGS_MENU: SettingsMenuSection[] = [
     title: 'Account',
     items: [
       {id: 'personal-information', label: 'Personal information'},
-      {id: 'change-password', label: 'Change password'},
       {id: 'account-status', label: 'Account status'},
     ],
   },
@@ -54,7 +45,6 @@ export const SETTINGS_MENU: SettingsMenuSection[] = [
     title: 'Profile',
     items: [
       {id: 'profile-visibility', label: 'Profile visibility'},
-      {id: 'public-profile-preview', label: 'Public profile preview'},
       {id: 'verification', label: 'Verification'},
     ],
   },
@@ -64,7 +54,6 @@ export const SETTINGS_MENU: SettingsMenuSection[] = [
     items: [
       {id: 'emergency-contact', label: 'Emergency contact'},
       {id: 'blocked-users', label: 'Blocked users'},
-      {id: 'report-problem', label: 'Report a problem'},
     ],
   },
   {
@@ -74,23 +63,6 @@ export const SETTINGS_MENU: SettingsMenuSection[] = [
       {id: 'notifications-requests', label: 'Requests'},
       {id: 'notifications-chat', label: 'Chat'},
       {id: 'notifications-reminders', label: 'Reminders'},
-    ],
-  },
-  {
-    id: 'payments',
-    title: 'Payments',
-    items: [
-      {id: 'wallet', label: 'Wallet'},
-      {id: 'earnings', label: 'Earnings'},
-      {id: 'transactions', label: 'Transactions'},
-    ],
-  },
-  {
-    id: 'app',
-    title: 'App',
-    items: [
-      {id: 'appearance', label: 'Appearance'},
-      {id: 'language', label: 'Language'},
     ],
   },
   {

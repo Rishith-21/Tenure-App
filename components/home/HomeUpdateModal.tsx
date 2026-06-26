@@ -43,6 +43,7 @@ const HomeUpdateModal = ({
 }: Props) => {
   const {colors} = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const avatarUri = profileAvatar.trim();
 
   if (!anchor) {
     return null;
@@ -72,7 +73,13 @@ const HomeUpdateModal = ({
               pressed && styles.menuRowPressed,
             ]}
             onPress={onOpenProfile}>
-            <Image source={{uri: profileAvatar}} style={styles.menuAvatar} />
+            {avatarUri ? (
+              <Image source={{uri: avatarUri}} style={styles.menuAvatar} />
+            ) : (
+              <View style={[styles.menuAvatar, styles.menuAvatarPlaceholder]}>
+                <Text style={styles.menuAvatarInitial}>T</Text>
+              </View>
+            )}
             <Text style={styles.menuRowText}>Profile</Text>
           </Pressable>
 
@@ -134,6 +141,16 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       borderRadius: 14,
       borderWidth: 1,
       borderColor: c.border,
+    },
+    menuAvatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.chip,
+    },
+    menuAvatarInitial: {
+      fontSize: 12,
+      fontWeight: '900',
+      color: c.brand,
     },
     menuRowText: {
       flex: 1,

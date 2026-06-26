@@ -16,6 +16,8 @@ const ResultCard = ({user, onPress, available = true}: Props) => {
   const category = user.categories[0] ?? 'Mate';
   const verified = useMemo(() => isSearchMateVerified(user.id), [user.id]);
   const elevated = useSearchElevated();
+  const avatarUri = user.avatar.trim();
+  const avatarInitial = (user.name.trim().charAt(0) || 'T').toUpperCase();
 
   return (
     <Pressable
@@ -25,7 +27,13 @@ const ResultCard = ({user, onPress, available = true}: Props) => {
         getSearchShadowCard(elevated),
         pressed && styles.pressed,
       ]}>
-      <Image source={{uri: user.avatar}} style={styles.avatar} />
+      {avatarUri ? (
+        <Image source={{uri: avatarUri}} style={styles.avatar} />
+      ) : (
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+        </View>
+      )}
 
       <View style={styles.body}>
         <View style={styles.nameRow}>
@@ -88,6 +96,15 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 16,
     backgroundColor: S.primarySoft,
+  },
+  avatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: S.primary,
   },
   body: {flex: 1, minWidth: 0},
   nameRow: {

@@ -19,7 +19,6 @@ import MateProfileScreen from '../screens/MateProfileScreen';
 import GalleryScreen from '../screens/GalleryScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import SettingsDetailScreen from '../screens/SettingsDetailScreen';
-import SettingsAppearanceScreen from '../screens/SettingsAppearanceScreen';
 import AccountStatusScreen from '../screens/AccountStatusScreen';
 
 const Stack = createNativeStackNavigator();
@@ -98,14 +97,6 @@ const AppNavigator = () => {
         <Stack.Screen
           name="SettingsDetail"
           component={SettingsDetailScreen}
-          options={{
-            animation: 'slide_from_right',
-            contentStyle: {backgroundColor: '#F6F8FA'},
-          }}
-        />
-        <Stack.Screen
-          name="SettingsAppearance"
-          component={SettingsAppearanceScreen}
           options={{
             animation: 'slide_from_right',
             contentStyle: {backgroundColor: '#F6F8FA'},

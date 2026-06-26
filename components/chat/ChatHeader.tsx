@@ -31,6 +31,8 @@ const ChatHeader = ({
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   const [menuVisible, setMenuVisible] = useState(false);
   const {showAlert, showConfirm} = useAppDialog();
+  const avatarUri = mateAvatar.trim();
+  const avatarInitial = (mateName.trim().charAt(0) || 'T').toUpperCase();
 
   const handleBlock = () => {
     setMenuVisible(false);
@@ -98,7 +100,13 @@ const ChatHeader = ({
     <View style={styles.header}>
       <BackButton onPress={onBack} style={styles.backButtonSlot} />
 
-      <Image source={{uri: mateAvatar}} style={styles.avatar} />
+      {avatarUri ? (
+        <Image source={{uri: avatarUri}} style={styles.avatar} />
+      ) : (
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+        </View>
+      )}
 
       <View style={styles.headerTextBlock}>
         <Text style={styles.mateName}>{mateName}</Text>
@@ -155,6 +163,16 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       marginRight: 10,
       borderWidth: 1,
       borderColor: c.border,
+    },
+    avatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.chip,
+    },
+    avatarInitial: {
+      fontSize: 17,
+      fontWeight: '900',
+      color: c.brand,
     },
     headerTextBlock: {flex: 1},
     mateName: {

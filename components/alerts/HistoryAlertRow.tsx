@@ -4,12 +4,9 @@ import {HistoryAlert, HistoryAlertKind} from '../../types/historyAlert';
 import {useTheme} from '../../context/ThemeContext';
 
 const ICONS: Record<HistoryAlertKind, string> = {
-  request_accepted: '✓',
-  meet_canceled: '✕',
-  payment_canceled: '₹',
-  meet_expired: '🕐',
-  payment_sent: '₹',
-  payment_received: '₹',
+  request_accepted: 'OK',
+  meet_canceled: 'X',
+  meet_expired: '!',
 };
 
 type Props = {
@@ -20,16 +17,12 @@ type Props = {
 const HistoryAlertRow = ({alert, onFeedback}: Props) => {
   const {colors} = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const paymentKind =
-    alert.kind === 'payment_sent' ||
-    alert.kind === 'payment_received' ||
-    alert.kind === 'payment_canceled';
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.timestamp}>{alert.timestamp}</Text>
-      <View style={[styles.card, paymentKind && styles.cardPayment]}>
-        <View style={[styles.iconCircle, paymentKind && styles.iconCirclePayment]}>
+      <View style={styles.card}>
+        <View style={styles.iconCircle}>
           <Text style={styles.icon}>{ICONS[alert.kind]}</Text>
         </View>
         <Text style={styles.message} numberOfLines={2}>
@@ -67,9 +60,6 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: c.border,
     },
-    cardPayment: {
-      backgroundColor: c.bgElevated,
-    },
     iconCircle: {
       width: 34,
       height: 34,
@@ -79,13 +69,10 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       justifyContent: 'center',
       marginRight: 10,
     },
-    iconCirclePayment: {
-      backgroundColor: c.meetPendingConfirmCardBg,
-    },
     icon: {
-      fontSize: 14,
+      fontSize: 11,
       color: c.textSecondary,
-      fontWeight: '700',
+      fontWeight: '800',
     },
     message: {
       flex: 1,

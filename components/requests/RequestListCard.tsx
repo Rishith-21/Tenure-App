@@ -25,6 +25,8 @@ const RequestListCard = ({
 }: Props) => {
   const {colors} = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const avatarUri = request.mateAvatar.trim();
+  const avatarInitial = (request.mateName.trim().charAt(0) || 'T').toUpperCase();
   const line =
     subtitle ??
     (request.status === 'expired' && request.expiresInDays
@@ -36,7 +38,13 @@ const RequestListCard = ({
       style={({pressed}) => [styles.card, pressed && styles.pressed]}
       onPress={onPress}
       disabled={!onPress}>
-      <Image source={{uri: request.mateAvatar}} style={styles.avatar} />
+      {avatarUri ? (
+        <Image source={{uri: avatarUri}} style={styles.avatar} />
+      ) : (
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+        </View>
+      )}
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>
           {request.mateName}
@@ -110,6 +118,15 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       height: 50,
       borderRadius: 25,
       backgroundColor: c.chip,
+    },
+    avatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarInitial: {
+      fontSize: 18,
+      fontWeight: '900',
+      color: c.brand,
     },
     info: {
       flex: 1,

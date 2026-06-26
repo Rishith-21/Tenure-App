@@ -1,10 +1,7 @@
 export type HistoryAlertKind =
   | 'request_accepted'
   | 'meet_canceled'
-  | 'payment_canceled'
-  | 'meet_expired'
-  | 'payment_sent'
-  | 'payment_received';
+  | 'meet_expired';
 
 export type HistoryAlert = {
   id: string;
@@ -13,7 +10,3 @@ export type HistoryAlert = {
   timestamp: string;
 };
 
-export type PendingPaymentSummary = {
-  label: string;
-  count: number;
-};

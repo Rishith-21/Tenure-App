@@ -16,7 +16,7 @@ type AlertsState = {
   alerts: ExtendedHistoryAlert[];
   loading: boolean;
   error: string | null;
-  fetchAlerts: (filter?: 'all' | 'payments') => Promise<void>;
+  fetchAlerts: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
 };
@@ -39,10 +39,10 @@ export const useAlertsStore = create<AlertsState>((set, get) => ({
   loading: false,
   error: null,
 
-  fetchAlerts: async (filter = 'all') => {
+  fetchAlerts: async () => {
     set({loading: true, error: null});
     try {
-      const data = await fetchNotifications(filter);
+      const data = await fetchNotifications();
       const mapped = data.map(mapApiToFrontend);
       set({alerts: mapped, loading: false});
     } catch (err) {

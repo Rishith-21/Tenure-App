@@ -201,6 +201,8 @@ const ExploreScreen = ({navigation}: any) => {
   /* ── Deck card ────────────────────────────────────────── */
   const renderDeckCard = ({item}: {item: HomeMeetItem}) => {
     const isLive = Boolean(item.isLive);
+    const avatarUri = item.mateAvatar.trim();
+    const avatarInitial = (item.mateName.trim().charAt(0) || 'T').toUpperCase();
     const statusColor =
       item.pillLabel === 'CONFIRMED' ? K.success
       : item.pillLabel === 'WAITING' || item.pillLabel === 'CONFIRM?' ? K.accent
@@ -219,7 +221,13 @@ const ExploreScreen = ({navigation}: any) => {
           ]}
           onPress={() => handleMeetPress(item)}>
           <View style={styles.deckTop}>
-            <Image source={{uri: item.mateAvatar}} style={styles.deckAvatar} />
+            {avatarUri ? (
+              <Image source={{uri: avatarUri}} style={styles.deckAvatar} />
+            ) : (
+              <View style={[styles.deckAvatar, styles.deckAvatarPlaceholder]}>
+                <Text style={styles.deckAvatarInitial}>{avatarInitial}</Text>
+              </View>
+            )}
             <View style={styles.deckInfo}>
               <Text style={styles.deckName} numberOfLines={1}>{item.mateName}</Text>
               <Text style={styles.deckMeta} numberOfLines={1}>{metaLine}</Text>
@@ -413,6 +421,15 @@ const styles = StyleSheet.create({
     width: 52, height: 52, borderRadius: 26,
     backgroundColor: K.surface,
     borderWidth: 1.5, borderColor: K.borderHigh,
+  },
+  deckAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deckAvatarInitial: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: K.accent,
   },
   deckInfo: {flex: 1, minWidth: 0},
   deckName: {fontSize: 17, fontWeight: '800', color: K.text, letterSpacing: -0.3},

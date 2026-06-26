@@ -53,13 +53,17 @@ const MatePassportHero = ({
   const {colors} = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const locationLine = formatProfileLocation(district, fullLocation);
+  const trimmedAvatarUri = avatarUri.trim();
+  const avatarInitial = (name.trim().charAt(0) || 'T').toUpperCase();
   const metaLine = [
     formatMateShortMeta(gender, age),
     tenureId,
   ]
     .filter(Boolean)
     .join(' · ');
-  const galleryPreviewImages = galleryImages.length > 0 ? galleryImages : [];
+  const galleryPreviewImages = galleryImages
+    .map(uri => uri.trim())
+    .filter(Boolean);
 
   return (
     <View style={styles.outer}>
@@ -69,7 +73,13 @@ const MatePassportHero = ({
           accessibilityRole="imagebutton"
           accessibilityLabel="View profile photo"
           style={styles.avatarPress}>
-          <Image source={{uri: avatarUri}} style={styles.avatar} />
+          {trimmedAvatarUri ? (
+            <Image source={{uri: trimmedAvatarUri}} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+            </View>
+          )}
         </Pressable>
 
         <Text style={styles.name}>{name}</Text>
@@ -152,6 +162,15 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       borderWidth: 3,
       borderColor: c.card,
       backgroundColor: c.chip,
+    },
+    avatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarInitial: {
+      fontSize: 30,
+      fontWeight: '900',
+      color: c.brand,
     },
     name: {
       fontSize: 22,

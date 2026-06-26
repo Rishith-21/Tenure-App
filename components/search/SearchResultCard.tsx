@@ -22,6 +22,8 @@ const SearchResultCard = ({
   const styles = useMemo(() => createStyles(colors), [colors]);
   const tags = user.categories.slice(0, 3);
   const verified = useMemo(() => isSearchMateVerified(user.id), [user.id]);
+  const avatarUri = user.avatar.trim();
+  const avatarInitial = (user.name.trim().charAt(0) || 'T').toUpperCase();
 
   return (
     <Pressable
@@ -29,7 +31,13 @@ const SearchResultCard = ({
       style={({pressed}) => [styles.card, pressed && styles.cardPressed]}>
       <View style={styles.topRow}>
         <View style={styles.avatarWrap}>
-          <Image source={{uri: user.avatar}} style={styles.avatar} />
+          {avatarUri ? (
+            <Image source={{uri: avatarUri}} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
+            </View>
+          )}
           {user.isNew ? (
             <View style={styles.newBadge}>
               <Text style={styles.newBadgeText}>NEW</Text>
@@ -120,6 +128,15 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) =>
       height: 60,
       borderRadius: 18,
       backgroundColor: c.chip,
+    },
+    avatarPlaceholder: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarInitial: {
+      fontSize: 20,
+      fontWeight: '900',
+      color: c.brand,
     },
     newBadge: {
       position: 'absolute',
