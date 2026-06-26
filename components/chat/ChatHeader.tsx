@@ -10,11 +10,13 @@ import {
 import {useAppDialog} from '../../context/DialogContext';
 import {useTheme} from '../../context/ThemeContext';
 import BackButton from '../navigation/BackButton';
+import { blockUser, submitReport } from '../../utils/api';
 
 type Props = {
   mateName: string;
   mateTenureId: string;
   mateAvatar: string;
+  mateUserId?: string;
   onBack: () => void;
 };
 
@@ -22,6 +24,7 @@ const ChatHeader = ({
   mateName,
   mateTenureId,
   mateAvatar,
+  mateUserId,
   onBack,
 }: Props) => {
   const {colors} = useTheme();
@@ -36,11 +39,26 @@ const ChatHeader = ({
       message: `Block ${mateName}? You will no longer receive messages from them.`,
       confirmText: 'Block',
       destructive: true,
-      onConfirm: () => {
-        showAlert({
-          title: 'Blocked',
-          message: `${mateName} has been blocked.`,
-        });
+      onConfirm: async () => {
+        if (!mateUserId) {
+          showAlert({
+            title: 'Block Failed',
+            message: 'User ID is missing.',
+          });
+          return;
+        }
+        try {
+          await blockUser(mateUserId);
+          showAlert({
+            title: 'Blocked',
+            message: `${mateName} has been blocked.`,
+          });
+        } catch (error: any) {
+          showAlert({
+            title: 'Block Failed',
+            message: error?.message || 'Could not block user.',
+          });
+        }
       },
     });
   };
@@ -52,11 +70,26 @@ const ChatHeader = ({
       message: `Report ${mateName} for review?`,
       confirmText: 'Report',
       destructive: true,
-      onConfirm: () => {
-        showAlert({
-          title: 'Report submitted',
-          message: 'Thank you. Our team will review this.',
-        });
+      onConfirm: async () => {
+        if (!mateUserId) {
+          showAlert({
+            title: 'Report Failed',
+            message: 'User ID is missing.',
+          });
+          return;
+        }
+        try {
+          await submitReport('abuse', `Reported from chat conversation with ${mateName}`, mateUserId);
+          showAlert({
+            title: 'Report submitted',
+            message: 'Thank you. Our team will review this.',
+          });
+        } catch (error: any) {
+          showAlert({
+            title: 'Report Failed',
+            message: error?.message || 'Could not submit report.',
+          });
+        }
       },
     });
   };

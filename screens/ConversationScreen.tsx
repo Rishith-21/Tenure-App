@@ -130,6 +130,7 @@ const ConversationScreen = ({navigation, route}: any) => {
     initialElapsedSec = 283,
     sessionOtp: routeSessionOtp,
     requestId,
+    mateUserId,
   } = params;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -846,6 +847,7 @@ const ConversationScreen = ({navigation, route}: any) => {
             mateName={mateName}
             mateTenureId={mateTenureId}
             mateAvatar={mateAvatar}
+            mateUserId={mateUserId}
             onBack={() => navigation.goBack()}
           />
 

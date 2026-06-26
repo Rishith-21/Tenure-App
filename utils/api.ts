@@ -85,6 +85,13 @@ export type BackendProfile = {
   instantAvailableUntil: string | null;
   instantCategories: string[];
   instantNote: string | null;
+  profileVisibility: boolean;
+  notifyRequests: boolean;
+  notifyChat: boolean;
+  notifyReminders: boolean;
+  emergencyName: string | null;
+  emergencyPhone: string | null;
+  emergencyRelation: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -129,6 +136,13 @@ export type ProfileUpsertInput = {
   instantAvailableUntil?: string | null;
   instantCategories?: string[];
   instantNote?: string | null;
+  profileVisibility?: boolean;
+  notifyRequests?: boolean;
+  notifyChat?: boolean;
+  notifyReminders?: boolean;
+  emergencyName?: string | null;
+  emergencyPhone?: string | null;
+  emergencyRelation?: string | null;
 };
 
 export async function fetchCurrentUser(): Promise<BackendUser | null> {
@@ -854,6 +868,118 @@ export async function markAllNotificationsRead(): Promise<void> {
     });
   } catch (error) {
     console.log('Error marking all notifications as read:', error);
+  }
+}
+
+export async function changePassword(currentPassword?: string, newPassword?: string): Promise<void> {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/users/change-password`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to update password');
+  }
+}
+
+export async function blockUser(blockedId: string): Promise<void> {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/users/block`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ blockedId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to block user');
+  }
+}
+
+export async function unblockUser(blockedId: string): Promise<void> {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/users/unblock`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ blockedId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to unblock user');
+  }
+}
+
+export type BlockedUserApi = {
+  userId: string;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  tenureId: string;
+  fullName: string;
+  profilePhoto: string | null;
+};
+
+export async function fetchBlockedUsers(): Promise<BlockedUserApi[]> {
+  const token = await getToken();
+  if (!token) return [];
+
+  const baseUrl = getBaseUrl();
+  try {
+    const response = await fetch(`${baseUrl}/api/users/blocked`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data?.data?.blockedUsers ?? [];
+  } catch (error) {
+    console.log('Error fetching blocked users:', error);
+    return [];
+  }
+}
+
+export async function submitReport(category: string, message: string, targetId?: string | null): Promise<void> {
+  const token = await getToken();
+  if (!token) throw new Error('Not authenticated');
+
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/reports`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ category, message, targetId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to submit report');
   }
 }
 
