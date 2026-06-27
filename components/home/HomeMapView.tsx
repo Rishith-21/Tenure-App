@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, {Marker, PROVIDER_GOOGLE, Region} from 'react-native-maps';
+import MapView, {Marker, PROVIDER_GOOGLE, Region, UrlTile} from 'react-native-maps';
 import {mapsEnabledOnAndroid} from '../../config/maps';
 import {useUserLocation} from '../../hooks/useUserLocation';
 import {useTheme} from '../../context/ThemeContext';
@@ -113,6 +113,12 @@ const HomeMapView = ({
         toolbarEnabled={false}
         accessibilityLabel={locationLabel}
         onPress={() => onMapPress?.()}>
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          tileSize={256}
+          shouldReplaceMapContent={true}
+        />
         {markers.map(marker => (
           <Marker
             key={marker.id}

@@ -16,5 +16,4 @@ export const DEFAULT_MAP_REGION = {
   longitudeDelta: 0.045,
 };
 
-export const mapsEnabledOnAndroid = (): boolean =>
-  Boolean(GOOGLE_MAPS_API_KEY?.trim());
+export const mapsEnabledOnAndroid = (): boolean => true;
